@@ -1,23 +1,9 @@
-import { z } from 'zod'
+import { type CoreMessage } from 'ai'
 
-export const EventTypeSchema = z.enum(['discord', 'scheduled'])
-export type EventType = z.infer<typeof EventTypeSchema>
+export type EventType = 'discord' | 'scheduled'
 
-export const MessageRoleSchema = z.enum(['system', 'user', 'assistant', 'tool'])
-export type MessageRole = z.infer<typeof MessageRoleSchema>
-
-export const MessageSchema = z.object({
-  role: MessageRoleSchema,
-  content: z.string(),
-  name: z.string().optional(),
-})
-
-export type Message = z.infer<typeof MessageSchema>
-
-export const EventSchema = z.object({
-  type: EventTypeSchema,
-  channel: z.string(),
-  messages: z.array(MessageSchema),
-})
-
-export type Event = z.infer<typeof EventSchema> 
+export type Event = {
+  type: EventType
+  channel: string
+  messages: CoreMessage[]
+} 

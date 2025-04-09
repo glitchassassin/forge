@@ -1,6 +1,6 @@
-import { join } from 'node:path'
 import { rm } from 'node:fs/promises'
-import { beforeEach, afterEach } from 'vitest'
+import { join } from 'node:path'
+import { afterEach, beforeEach } from 'vitest'
 
 // Use the test pool id to create a unique test database path per test runner
 const TEST_DB_PATH = join(process.cwd(), 'data', `test.${process.env.VITEST_POOL_ID || 0}.db`)
@@ -14,7 +14,7 @@ beforeEach(async () => {
     await rm(TEST_DB_PATH)
     await rm(TEST_DB_PATH + "-wal")
     await rm(TEST_DB_PATH + "-shm")
-  } catch (error) {
+  } catch {
     // Ignore errors if the file doesn't exist
   }
 })
@@ -24,7 +24,7 @@ afterEach(async () => {
     await rm(TEST_DB_PATH)
     await rm(TEST_DB_PATH + "-wal")
     await rm(TEST_DB_PATH + "-shm")
-  } catch (error) {
+  } catch {
     // Ignore errors if the file doesn't exist
   }
 }) 

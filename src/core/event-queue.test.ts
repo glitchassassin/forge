@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { type Event } from '../types/events'
 import { EventQueue } from './event-queue'
-import { Event } from '../types/events'
 
 describe('EventQueue', () => {
   it('should process events in order', async () => {
@@ -20,8 +20,8 @@ describe('EventQueue', () => {
       },
     ]
 
-    queue.add(events[0])
-    queue.add(events[1])
+    queue.add(events[0]!)
+    queue.add(events[1]!)
 
     await queue.waitForCompletion()
 
@@ -81,8 +81,8 @@ describe('EventQueue', () => {
       },
     ]
 
-    queue.add(events[0])
-    queue.add(events[1])
+    queue.add(events[0]!)
+    queue.add(events[1]!)
 
     await queue.waitForCompletion()
 

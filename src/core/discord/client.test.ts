@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Client, REST } from 'discord.js'
-import { DiscordClient } from './client'
-import { Event } from '../../types/events'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Database } from '../database'
+import { DiscordClient } from './client'
 
 vi.mock('discord.js', () => ({
   Client: vi.fn().mockImplementation(() => ({

@@ -1,17 +1,5 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "outDir": "dist",
-    "rootDir": "src",
-    "sourceMap": true,
-    "declaration": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+	"extends": ["@epic-web/config/typescript"],
+  "include": ["**/*"],
+  "exclude": ["node_modules", "dist"]
 } 

@@ -1,4 +1,4 @@
-import { Event, EventSchema } from '../types/events'
+import { type Event } from '../types/events'
 
 type EventHandler = (event: Event) => Promise<void>
 
@@ -11,9 +11,6 @@ export class EventQueue {
   }
 
   add(event: Event): void {
-    // Validate the event
-    EventSchema.parse(event)
-    
     this.processingPromise = this.processingPromise
       .then(() => this.handler(event))
       .catch(error => {

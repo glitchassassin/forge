@@ -1,6 +1,6 @@
-import { Client, GatewayIntentBits, REST, Routes, ChannelType } from 'discord.js'
-import { Event, MessageRole } from '../../types/events'
-import { Database } from '../database'
+import { ChannelType, Client, GatewayIntentBits, REST, Routes } from 'discord.js'
+import { type Event } from '../../types/events'
+import { type Database } from '../database'
 
 const COMMANDS = [
   {
@@ -78,7 +78,7 @@ export class DiscordClient {
         const recentMessages = Array.from(messages.values())
           .filter(msg => msg.createdTimestamp > oneHourAgo)
           .map(msg => ({
-            role: (msg.author.bot ? 'assistant' : 'user') as MessageRole,
+            role: (msg.author.bot ? 'assistant' as const : 'user' as const),
             content: msg.content,
             name: msg.author.username,
           }))
@@ -86,7 +86,7 @@ export class DiscordClient {
 
         // Add the current message
         recentMessages.push({
-          role: 'user' as MessageRole,
+          role: 'user',
           content: message.content,
           name: message.author.username,
         })
@@ -127,5 +127,13 @@ export class DiscordClient {
       throw new Error(`Channel ${channelId} is not a text channel`)
     }
     await channel.send(content)
+  }
+
+  public async startTyping(channelId: string): Promise<void> {
+    const channel = await this.client.channels.fetch(channelId)
+    if (!channel?.isTextBased() || channel.type !== ChannelType.GuildText) {
+      throw new Error(`Channel ${channelId} is not a text channel`)
+    }
+    await channel.sendTyping()
   }
 } 

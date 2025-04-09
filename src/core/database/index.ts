@@ -1,5 +1,5 @@
-import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 
 export class Database {
   private db: DatabaseSync

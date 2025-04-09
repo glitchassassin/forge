@@ -2,56 +2,64 @@ import { streamText } from 'ai'
 import { type DiscordClient } from '../core/discord/client'
 import { QUASAR_ALPHA } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
+import { GITHUB } from '../tools/github'
 import { type Event } from '../types/events'
 
 export const createEventHandler = (discordClient: DiscordClient) => {
-  return async (event: Event): Promise<void> => {
-    console.log('Processing event:', {
-      type: event.type,
-      channel: event.channel,
-      messageCount: event.messages.length,
-    })
-    
-    let currentMessage = ''
-    
-    try {
-      // Start typing indicator
-      await discordClient.startTyping(event.channel)
-      
-      const stream = streamText({
-        model: QUASAR_ALPHA,
-        messages: event.messages,
-        system: MAIN_PROMPT,
-      })
-      
-      for await (const chunk of stream.textStream) {
-        currentMessage += chunk
-        
-        // Split on double newlines to send paragraphs
-        const paragraphs = currentMessage.split('\n\n')
-        
-        // If we have more than one paragraph, send all but the last one
-        if (paragraphs.length > 1) {
-          for (let i = 0; i < paragraphs.length - 1; i++) {
-            const paragraph = paragraphs[i]?.trim()
-            if (paragraph) {
-              await discordClient.sendMessage(event.channel, paragraph)
-              // Restart typing indicator after sending a message
-              await discordClient.startTyping(event.channel)
-            }
-          }
-          // Keep the last (potentially incomplete) paragraph
-          currentMessage = paragraphs[paragraphs.length - 1] ?? ''
-        }
-      }
-      
-      // Send any remaining text
-      if (currentMessage.trim()) {
-        await discordClient.sendMessage(event.channel, currentMessage.trim())
-      }
-    } catch (error) {
-      console.error('Error processing event:', error)
-      await discordClient.sendMessage(event.channel, 'Sorry, I encountered an error processing your request.')
-    }
-  }
-} 
+	return async (event: Event): Promise<void> => {
+		console.log('Processing event:', {
+			type: event.type,
+			channel: event.channel,
+			messageCount: event.messages.length,
+		})
+
+		let currentMessage = ''
+
+		try {
+			// Start typing indicator
+			await discordClient.startTyping(event.channel)
+
+			const stream = streamText({
+				model: QUASAR_ALPHA,
+				messages: event.messages,
+				system: MAIN_PROMPT,
+				tools: {
+					...(await GITHUB.tools()),
+				},
+				maxSteps: 10,
+			})
+
+			for await (const chunk of stream.textStream) {
+				currentMessage += chunk
+
+				// Split on double newlines to send paragraphs
+				const paragraphs = currentMessage.split('\n\n')
+
+				// If we have more than one paragraph, send all but the last one
+				if (paragraphs.length > 1) {
+					for (let i = 0; i < paragraphs.length - 1; i++) {
+						const paragraph = paragraphs[i]?.trim()
+						if (paragraph) {
+							await discordClient.sendMessage(event.channel, paragraph)
+							// Restart typing indicator after sending a message
+							await discordClient.startTyping(event.channel)
+						}
+					}
+					// Keep the last (potentially incomplete) paragraph
+					currentMessage = paragraphs[paragraphs.length - 1] ?? ''
+				}
+			}
+
+			// Send any remaining text
+			if (currentMessage.trim()) {
+				await discordClient.sendMessage(event.channel, currentMessage.trim())
+			}
+		} catch (error) {
+			console.error('Error processing event:', error)
+			await discordClient.sendMessage(
+				event.channel,
+				'Sorry, I encountered an error processing your request.',
+			)
+		}
+	}
+}

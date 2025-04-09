@@ -7,6 +7,7 @@ import { GITHUB } from '../tools/github'
 import { scheduleTools } from '../tools/schedule'
 import { withConfirmation } from '../tools/withConfirmation'
 import { type Event } from '../types/events'
+
 export const createEventHandler = (
 	discordClient: DiscordClient,
 	db: Database,
@@ -24,9 +25,15 @@ export const createEventHandler = (
 			// Start typing indicator
 			await discordClient.startTyping(event.channel)
 
+			// Get previous context for this channel
+			const previousContext = await db.getChannelContext(event.channel)
+
+			// Combine previous context with current messages
+			const allMessages = [...previousContext, ...event.messages]
+
 			const stream = streamText({
 				model: QUASAR_ALPHA,
-				messages: event.messages,
+				messages: allMessages,
 				system: MAIN_PROMPT(),
 				tools: {
 					...withConfirmation(await GITHUB.tools(), async (toolName, args) => {
@@ -62,6 +69,16 @@ export const createEventHandler = (
 			// Send any remaining text
 			if (currentMessage.trim()) {
 				await discordClient.sendMessage(event.channel, currentMessage.trim())
+			}
+
+			// Store the conversation in context
+			for (const message of event.messages) {
+				await db.addMessageToContext(event.channel, message)
+			}
+
+			// Store the assistant's response
+			for (const message of (await stream.response).messages) {
+				await db.addMessageToContext(event.channel, message)
 			}
 		} catch (error) {
 			console.error('Error processing event:', error)

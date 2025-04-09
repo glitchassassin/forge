@@ -76,36 +76,16 @@ export class DiscordClient {
 				return
 
 			try {
-				// Fetch recent messages
-				const channel = message.channel
-				const messages = await channel.messages.fetch({
-					limit: MAX_MESSAGES,
-					before: message.id,
-				})
-
-				// Filter messages from the last hour and convert to our format
-				const oneHourAgo = Date.now() - ONE_HOUR
-				const recentMessages = Array.from(messages.values())
-					.filter((msg) => msg.createdTimestamp > oneHourAgo)
-					.map((msg) => ({
-						role: msg.author.bot ? ('assistant' as const) : ('user' as const),
-						content: msg.content,
-						name: msg.author.username,
-					}))
-					.reverse() // Reverse to get chronological order
-
-				// Add the current message
-				recentMessages.push({
-					role: 'user',
-					content: message.content,
-					name: message.author.username,
-				})
-
 				// Create an event with the message history
 				const event: Event = {
 					type: 'discord',
 					channel: message.channelId,
-					messages: recentMessages,
+					messages: [
+						{
+							role: 'user',
+							content: `@${message.author.username}: ${message.content}`,
+						},
+					],
 				}
 
 				// Call the message handler if it exists

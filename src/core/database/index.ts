@@ -1,3 +1,4 @@
+import { CoreMessage } from 'ai'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { v4 as uuidv4 } from 'uuid'
@@ -31,8 +32,16 @@ export class Database {
         channel_id TEXT NOT NULL,
         last_triggered_at INTEGER,
         next_trigger_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        FOREIGN KEY (channel_id) REFERENCES monitored_channels(channel_id)
+        created_at INTEGER NOT NULL
+      ) STRICT
+    `)
+
+		this.db.exec(`
+      CREATE TABLE IF NOT EXISTS conversation_context (
+        id TEXT PRIMARY KEY,
+        channel_id TEXT NOT NULL,
+        message TEXT NOT NULL,
+		created_at INTEGER NOT NULL
       ) STRICT
     `)
 	}
@@ -114,5 +123,40 @@ export class Database {
 		if (result.changes === 0) {
 			throw new Error('Scheduled event not found')
 		}
+	}
+
+	async addMessageToContext(
+		channelId: string,
+		message: CoreMessage,
+	): Promise<void> {
+		const stmt = this.db.prepare(`
+      INSERT INTO conversation_context (id, channel_id, message, created_at)
+      VALUES (?, ?, ?, ?)
+    `)
+		stmt.run(uuidv4(), channelId, JSON.stringify(message), Date.now())
+	}
+
+	async getChannelContext(
+		channelId: string,
+		limit: number = 10,
+	): Promise<CoreMessage[]> {
+		const stmt = this.db.prepare(`
+      SELECT message
+      FROM conversation_context
+      WHERE channel_id = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `)
+		const rows = stmt.all(channelId, limit) as Array<{
+			message: string
+		}>
+		return rows.map((row) => JSON.parse(row.message))
+	}
+
+	async clearChannelContext(channelId: string): Promise<void> {
+		const stmt = this.db.prepare(
+			'DELETE FROM conversation_context WHERE channel_id = ?',
+		)
+		stmt.run(channelId)
 	}
 }

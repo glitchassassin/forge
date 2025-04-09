@@ -1,12 +1,16 @@
 import { streamText } from 'ai'
+import { Database } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
 import { QUASAR_ALPHA } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
 import { GITHUB } from '../tools/github'
+import { scheduleTools } from '../tools/schedule'
 import { withConfirmation } from '../tools/withConfirmation'
 import { type Event } from '../types/events'
-
-export const createEventHandler = (discordClient: DiscordClient) => {
+export const createEventHandler = (
+	discordClient: DiscordClient,
+	db: Database,
+) => {
 	return async (event: Event): Promise<void> => {
 		console.log('Processing event:', {
 			type: event.type,
@@ -23,12 +27,13 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 			const stream = streamText({
 				model: QUASAR_ALPHA,
 				messages: event.messages,
-				system: MAIN_PROMPT,
+				system: MAIN_PROMPT(),
 				tools: {
 					...withConfirmation(await GITHUB.tools(), async (toolName, args) => {
 						const content = `Do you want to execute the ${toolName} tool with these arguments?\n\`\`\`json\n${JSON.stringify(args, null, 2)}\n\`\`\``
 						return discordClient.requestConfirmation(event.channel, content)
 					}),
+					...scheduleTools(db, event.channel),
 				},
 				maxSteps: 10,
 			})

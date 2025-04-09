@@ -25,4 +25,8 @@ Thumbs.db
 
 # Database
 *.sqlite
-*.sqlite3 
+*.sqlite3
+
+# Data and Logs
+data/
+logs/ 

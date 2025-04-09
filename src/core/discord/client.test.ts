@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Client, REST } from 'discord.js'
 import { DiscordClient } from './client'
 import { Event } from '../../types/events'
+import { Database } from '../database'
 
 vi.mock('discord.js', () => ({
   Client: vi.fn().mockImplementation(() => ({
@@ -27,10 +28,13 @@ describe('DiscordClient', () => {
   let client: DiscordClient
   let mockClient: Client
   let mockRest: REST
-  let messageHandler: Mock
+  let db: Database
+  let messageHandler: ReturnType<typeof vi.fn>
 
-  beforeEach(() => {
-    client = new DiscordClient('test-token')
+  beforeEach(async () => {
+    // Create a new database for each test
+    db = new Database()
+    client = new DiscordClient('test-token', db)
     mockClient = (Client as any).mock.results[(Client as any).mock.results.length - 1].value
     mockRest = (REST as any).mock.results[(REST as any).mock.results.length - 1].value
     messageHandler = vi.fn()
@@ -77,6 +81,8 @@ describe('DiscordClient', () => {
 
     await interactionHandler(mockInteraction)
 
+    // Verify the channel was added to the database
+    expect(db.getChannels()).toContain('test-channel')
     expect(mockInteraction.reply).toHaveBeenCalledWith({
       content: 'Now monitoring this channel for messages.',
       ephemeral: true,
@@ -126,5 +132,26 @@ describe('DiscordClient', () => {
         name: 'test-user',
       }],
     })
+  })
+
+  it('should ignore messages from non-monitored channels', async () => {
+    const mockMessage = {
+      author: { bot: false, username: 'test-user' },
+      channelId: 'test-channel',
+      content: 'Hello, world!',
+      channel: {
+        messages: {
+          fetch: vi.fn().mockResolvedValue(new Map()),
+        },
+      },
+    }
+
+    const internalMessageHandler = (mockClient.on as any).mock.calls.find(
+      (call: any) => call[0] === 'messageCreate'
+    )[1]
+
+    await internalMessageHandler(mockMessage)
+
+    expect(messageHandler).not.toHaveBeenCalled()
   })
 }) 

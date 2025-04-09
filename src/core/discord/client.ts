@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits, REST, Routes, ChannelType } from 'discord.js'
 import { Event, MessageRole } from '../../types/events'
+import { Database } from '../database'
 
 const COMMANDS = [
   {
@@ -15,11 +16,12 @@ export class DiscordClient {
   private client: Client
   private rest: REST
   private messageHandler?: (event: Event) => void
-  private monitoredChannels: Set<string> = new Set()
   private token: string
+  private db: Database
 
-  constructor(token: string) {
+  constructor(token: string, db: Database) {
     this.token = token
+    this.db = db
     this.client = new Client({
       intents: [
         GatewayIntentBits.Guilds,
@@ -51,7 +53,7 @@ export class DiscordClient {
 
       if (interaction.commandName === 'monitor') {
         const channelId = interaction.channelId
-        this.monitoredChannels.add(channelId)
+        await this.db.addChannel(channelId)
         await interaction.reply({
           content: `Now monitoring this channel for messages.`,
           ephemeral: true,
@@ -61,7 +63,7 @@ export class DiscordClient {
 
     this.client.on('messageCreate', async (message) => {
       // Ignore bot messages and non-monitored channels
-      if (message.author.bot || !this.monitoredChannels.has(message.channelId)) return
+      if (message.author.bot || !this.db.channelExists(message.channelId)) return
 
       try {
         // Fetch recent messages

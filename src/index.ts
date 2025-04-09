@@ -2,13 +2,15 @@ import 'dotenv/config'
 import { EventQueue } from './core/event-queue'
 import { DiscordClient } from './core/discord/client'
 import { createEventHandler } from './handlers/event-handler'
+import { Database } from './core/database'
 
 if (!process.env.DISCORD_TOKEN) {
   console.error('DISCORD_TOKEN is not set in .env file')
   process.exit(1)
 }
 
-const discordClient = new DiscordClient(process.env.DISCORD_TOKEN)
+const db = new Database()
+const discordClient = new DiscordClient(process.env.DISCORD_TOKEN, db)
 const handleEvent = createEventHandler(discordClient)
 const eventQueue = new EventQueue(handleEvent)
 

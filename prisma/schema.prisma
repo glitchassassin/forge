@@ -40,3 +40,15 @@ model ConversationContext {
 
   @@map("conversation_context")
 }
+
+model CollapsibleMessage {
+  id              String   @id @default(uuid())
+  messageId       String   @unique @map("message_id")
+  channelId       String   @map("channel_id")
+  content         String
+  collapsedContent String  @map("collapsed_content")
+  isCollapsed     Boolean  @default(true) @map("is_collapsed")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("collapsible_messages")
+}

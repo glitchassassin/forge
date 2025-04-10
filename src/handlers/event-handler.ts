@@ -11,12 +11,6 @@ import { type Event } from '../types/events'
 
 export const createEventHandler = (discordClient: DiscordClient) => {
 	return async (event: Event): Promise<void> => {
-		console.log('Processing event:', {
-			type: event.type,
-			channel: event.channel,
-			messageCount: event.messages.length,
-		})
-
 		let currentMessage = ''
 
 		try {
@@ -79,13 +73,6 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 			if (currentMessage.trim()) {
 				await discordClient.sendMessage(event.channel, currentMessage.trim())
 			}
-
-			console.log(
-				'Prompt:',
-				JSON.stringify(allMessages, null, 2),
-				'Stream response:',
-				JSON.stringify((await stream.response).messages, null, 2),
-			)
 
 			// Store the conversation in context
 			for (const message of event.messages) {

@@ -17,6 +17,11 @@ import {
 	deleteScheduledEvent,
 	getDueScheduledEvents,
 } from '../database'
+import {
+	createCollapsibleMessage,
+	getCollapsibleMessage,
+	toggleCollapsibleMessage,
+} from '../database/collapsible-messages'
 
 const COMMANDS = [
 	{
@@ -86,6 +91,40 @@ export class DiscordClient {
 		})
 
 		this.client.on('interactionCreate', async (interaction) => {
+			if (
+				interaction.isButton() &&
+				interaction.customId === 'toggle_collapse'
+			) {
+				const message = interaction.message
+				const collapsibleMessage = await getCollapsibleMessage(message.id)
+
+				if (!collapsibleMessage) {
+					await interaction.reply({
+						content: 'This message is no longer collapsible.',
+						flags: MessageFlags.Ephemeral,
+					})
+					return
+				}
+
+				const newState = !collapsibleMessage.isCollapsed
+				await toggleCollapsibleMessage(message.id)
+
+				const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+					new ButtonBuilder()
+						.setCustomId('toggle_collapse')
+						.setLabel(newState ? 'Expand' : 'Collapse')
+						.setStyle(ButtonStyle.Secondary),
+				)
+
+				await interaction.update({
+					content: newState
+						? collapsibleMessage.collapsedContent
+						: collapsibleMessage.content,
+					components: [row],
+				})
+				return
+			}
+
 			if (!interaction.isChatInputCommand()) return
 
 			if (interaction.commandName === 'monitor') {
@@ -233,5 +272,37 @@ export class DiscordClient {
 			})
 			return false
 		}
+	}
+
+	public async sendCollapsibleMessage(
+		channelId: string,
+		content: string,
+		collapsedContent: string,
+		collapsed: boolean = true,
+	): Promise<void> {
+		const channel = await this.client.channels.fetch(channelId)
+		if (!channel?.isTextBased() || channel.type !== ChannelType.GuildText) {
+			throw new Error(`Channel ${channelId} is not a text channel`)
+		}
+
+		const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+			new ButtonBuilder()
+				.setCustomId('toggle_collapse')
+				.setLabel(collapsed ? 'Expand' : 'Collapse')
+				.setStyle(ButtonStyle.Secondary),
+		)
+
+		const message = await channel.send({
+			content: collapsed ? collapsedContent : content,
+			components: [row],
+		})
+
+		await createCollapsibleMessage(
+			message.id,
+			channelId,
+			content,
+			collapsedContent,
+			collapsed,
+		)
 	}
 }

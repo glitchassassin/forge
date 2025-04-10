@@ -7,6 +7,7 @@ import { scheduleTools } from '../tools/schedule'
 import { withConfirmation } from '../tools/withConfirmation'
 import { type Event } from '../types/events'
 import { addMessageToContext, getChannelContext } from '../core/database'
+import { type StreamData } from 'ai'
 
 export const createEventHandler = (
 	discordClient: DiscordClient,
@@ -44,24 +45,32 @@ export const createEventHandler = (
 				maxSteps: 10,
 			})
 
-			for await (const chunk of stream.textStream) {
-				currentMessage += chunk
+			for await (const chunk of stream.fullStream) {
+				if (chunk.type === 'text-delta') {
+					currentMessage += chunk.textDelta
 
-				// Split on double newlines to send paragraphs
-				const paragraphs = currentMessage.split('\n\n')
+					// Split on double newlines to send paragraphs
+					const paragraphs = currentMessage.split('\n\n')
 
-				// If we have more than one paragraph, send all but the last one
-				if (paragraphs.length > 1) {
-					for (let i = 0; i < paragraphs.length - 1; i++) {
-						const paragraph = paragraphs[i]?.trim()
-						if (paragraph) {
-							await discordClient.sendMessage(event.channel, paragraph)
-							// Restart typing indicator after sending a message
-							await discordClient.startTyping(event.channel)
+					// If we have more than one paragraph, send all but the last one
+					if (paragraphs.length > 1) {
+						for (let i = 0; i < paragraphs.length - 1; i++) {
+							const paragraph = paragraphs[i]?.trim()
+							if (paragraph) {
+								await discordClient.sendMessage(event.channel, paragraph)
+								// Restart typing indicator after sending a message
+								await discordClient.startTyping(event.channel)
+							}
 						}
+						// Keep the last (potentially incomplete) paragraph
+						currentMessage = paragraphs[paragraphs.length - 1] ?? ''
 					}
-					// Keep the last (potentially incomplete) paragraph
-					currentMessage = paragraphs[paragraphs.length - 1] ?? ''
+				} else {
+					// If we have any pending text, send it first
+					if (currentMessage.trim()) {
+						await discordClient.sendMessage(event.channel, currentMessage.trim())
+						currentMessage = ''
+					}
 				}
 			}
 

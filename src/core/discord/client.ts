@@ -5,16 +5,49 @@ import {
 	ChannelType,
 	Client,
 	GatewayIntentBits,
+	MessageFlags,
 	REST,
 	Routes,
 } from 'discord.js'
 import { type Event } from '../../types/events'
-import { addChannel, channelExists } from '../database'
+import {
+	addChannel,
+	channelExists,
+	clearChannelContext,
+	deleteScheduledEvent,
+	getDueScheduledEvents,
+} from '../database'
 
 const COMMANDS = [
 	{
 		name: 'monitor',
 		description: 'Start monitoring this channel for messages',
+	},
+	{
+		name: 'reset',
+		description: 'Reset various aspects of the bot',
+		options: [
+			{
+				name: 'type',
+				description: 'What to reset',
+				type: 3, // STRING
+				required: true,
+				choices: [
+					{
+						name: 'History',
+						value: 'history',
+					},
+					{
+						name: 'Scheduled Events',
+						value: 'events',
+					},
+					{
+						name: 'Everything',
+						value: 'all',
+					},
+				],
+			},
+		],
 	},
 ]
 
@@ -60,7 +93,43 @@ export class DiscordClient {
 				await addChannel(channelId)
 				await interaction.reply({
 					content: `Now monitoring this channel for messages.`,
-					ephemeral: true,
+					flags: MessageFlags.Ephemeral,
+				})
+			} else if (interaction.commandName === 'reset') {
+				const resetType = interaction.options.getString('type', true)
+				const channelId = interaction.channelId
+
+				let content = ''
+				switch (resetType) {
+					case 'history':
+						await clearChannelContext(channelId)
+						content = 'Conversation history has been cleared for this channel.'
+						break
+					case 'events':
+						const events = await getDueScheduledEvents()
+						for (const event of events) {
+							if (event.channelId === channelId) {
+								await deleteScheduledEvent(event.id)
+							}
+						}
+						content = 'All scheduled events for this channel have been cleared.'
+						break
+					case 'all':
+						await clearChannelContext(channelId)
+						const allEvents = await getDueScheduledEvents()
+						for (const event of allEvents) {
+							if (event.channelId === channelId) {
+								await deleteScheduledEvent(event.id)
+							}
+						}
+						content =
+							'All conversation history and scheduled events have been cleared for this channel.'
+						break
+				}
+
+				await interaction.reply({
+					content,
+					flags: MessageFlags.Ephemeral,
 				})
 			}
 		})
@@ -78,7 +147,7 @@ export class DiscordClient {
 					messages: [
 						{
 							role: 'user',
-							content: `@${message.author.username}: ${message.content}`,
+							content: `${message.author.toString()}: ${message.content}`,
 						},
 					],
 				}
@@ -152,13 +221,16 @@ export class DiscordClient {
 			})
 
 			// Remove the buttons after response
-			await response.update({ components: [] })
+			await response.update({ components: [], content: '_Running tool..._' })
 
 			return response.customId === 'approve'
 		} catch (error) {
 			console.error('Error requesting confirmation:', error)
 			// Remove the buttons on timeout
-			await message.edit({ components: [] })
+			await message.edit({
+				components: [],
+				content: '_Tool request timed out._',
+			})
 			return false
 		}
 	}

@@ -2,7 +2,13 @@ import { tool } from 'ai'
 import * as chrono from 'chrono-node'
 import { CronExpressionParser } from 'cron-parser'
 import { z } from 'zod'
-import { createScheduledEvent, updateScheduledEvent, getDueScheduledEvents, deleteScheduledEvent } from '../core/database'
+import {
+	createScheduledEvent,
+	deleteScheduledEvent,
+	getDueScheduledEvents,
+	getScheduledEventsForChannel,
+	updateScheduledEvent,
+} from '../core/database'
 import { type EventQueue } from '../core/event-queue'
 import { type Event } from '../types/events'
 
@@ -177,8 +183,8 @@ export async function checkAndPublishScheduledEvents(
 					channel: event.channelId,
 					messages: [
 						{
-							role: 'system',
-							content: event.prompt,
+							role: 'user',
+							content: `Do this previously scheduled event now: \n\n${event.prompt}`,
 						},
 					],
 				}
@@ -186,7 +192,10 @@ export async function checkAndPublishScheduledEvents(
 				// Add to event queue
 				eventQueue.add(eventMessage)
 
-				await updateScheduledEventAfterTrigger(event.id, event.schedulePattern || undefined)
+				await updateScheduledEventAfterTrigger(
+					event.id,
+					event.schedulePattern || undefined,
+				)
 			} catch (error) {
 				console.error('Error processing scheduled event:', {
 					eventId: event.id,
@@ -219,8 +228,8 @@ export const scheduleTools = (channelId: string) => ({
 		
 		The prompt should be written to tell you what to do when the event triggers, with as much detail as you will need.
 		For example:
-		- "Remind the user to follow up with John Smith"
-		- "Ask the user what today's priorities are"
+		- "Say '<@1234567890> It's time to follow up with John Smith.'"
+		- "Say 'What are today's priorities?'"
 		- "Check for new GitHub issues in the last 24 hours and summarize them."`,
 		parameters: z.object({
 			pattern: SchedulePatternSchema,
@@ -232,12 +241,7 @@ export const scheduleTools = (channelId: string) => ({
 				if (!pattern && !timeOffset) {
 					throw new Error('Either pattern or timeOffset must be provided')
 				}
-				const id = await scheduleEvent(
-					pattern,
-					timeOffset,
-					prompt,
-					channelId,
-				)
+				const id = await scheduleEvent(pattern, timeOffset, prompt, channelId)
 				return { id, message: 'Scheduled event created successfully' }
 			} catch (error) {
 				console.error('Error creating scheduled event:', {
@@ -253,27 +257,24 @@ export const scheduleTools = (channelId: string) => ({
 	}),
 
 	list: tool({
-		description: `List all scheduled events that you have created.
-		
-		This will show you:
-		- The event ID
-		- The schedule pattern
-		- The prompt that will be executed
-		- The channel where it will be sent
-		- When it will next trigger
-		
-		Use this to review and manage your scheduled tasks.`,
+		description: 'List all scheduled events for the current channel',
 		parameters: z.object({}),
 		execute: async () => {
-			try {
-				const events = await getDueScheduledEvents()
-				return events
-			} catch (error) {
-				console.error('Error listing scheduled events:', {
-					error: error instanceof Error ? error.message : 'Unknown error',
-					stack: error instanceof Error ? error.stack : undefined,
-				})
-				throw error
+			const events = await getScheduledEventsForChannel(channelId)
+			if (events.length === 0) {
+				return { message: 'No scheduled events found for this channel' }
+			}
+
+			const eventList = events.map((event) => {
+				const nextTrigger = new Date(event.nextTriggerAt).toLocaleString()
+				const pattern = event.schedulePattern
+					? `\nSchedule: ${event.schedulePattern}`
+					: ''
+				return `ID: ${event.id}\nNext trigger: ${nextTrigger}${pattern}\nPrompt: ${event.prompt}\n`
+			})
+
+			return {
+				message: `Scheduled events for this channel:\n\n${eventList.join('\n')}`,
 			}
 		},
 	}),

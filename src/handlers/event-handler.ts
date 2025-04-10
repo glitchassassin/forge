@@ -1,17 +1,15 @@
 import { streamText } from 'ai'
+import { addMessageToContext, getChannelContext } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
 import { QUASAR_ALPHA } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
 import { GITHUB } from '../tools/github'
 import { scheduleTools } from '../tools/schedule'
 import { withConfirmation } from '../tools/withConfirmation'
+import { withLogging } from '../tools/withLogging'
 import { type Event } from '../types/events'
-import { addMessageToContext, getChannelContext } from '../core/database'
-import { type StreamData } from 'ai'
 
-export const createEventHandler = (
-	discordClient: DiscordClient,
-) => {
+export const createEventHandler = (discordClient: DiscordClient) => {
 	return async (event: Event): Promise<void> => {
 		console.log('Processing event:', {
 			type: event.type,
@@ -40,7 +38,7 @@ export const createEventHandler = (
 						const content = `Do you want to execute the ${toolName} tool with these arguments?\n\`\`\`json\n${JSON.stringify(args, null, 2)}\n\`\`\``
 						return discordClient.requestConfirmation(event.channel, content)
 					}),
-					...scheduleTools(event.channel),
+					...withLogging(scheduleTools(event.channel)),
 				},
 				maxSteps: 10,
 			})
@@ -58,8 +56,6 @@ export const createEventHandler = (
 							const paragraph = paragraphs[i]?.trim()
 							if (paragraph) {
 								await discordClient.sendMessage(event.channel, paragraph)
-								// Restart typing indicator after sending a message
-								await discordClient.startTyping(event.channel)
 							}
 						}
 						// Keep the last (potentially incomplete) paragraph
@@ -68,16 +64,28 @@ export const createEventHandler = (
 				} else {
 					// If we have any pending text, send it first
 					if (currentMessage.trim()) {
-						await discordClient.sendMessage(event.channel, currentMessage.trim())
+						await discordClient.sendMessage(
+							event.channel,
+							currentMessage.trim(),
+						)
 						currentMessage = ''
 					}
 				}
+				// Restart typing indicator after sending a message
+				await discordClient.startTyping(event.channel)
 			}
 
 			// Send any remaining text
 			if (currentMessage.trim()) {
 				await discordClient.sendMessage(event.channel, currentMessage.trim())
 			}
+
+			console.log(
+				'Prompt:',
+				JSON.stringify(allMessages, null, 2),
+				'Stream response:',
+				JSON.stringify((await stream.response).messages, null, 2),
+			)
 
 			// Store the conversation in context
 			for (const message of event.messages) {

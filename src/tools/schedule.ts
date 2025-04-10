@@ -2,8 +2,8 @@ import { tool } from 'ai'
 import * as chrono from 'chrono-node'
 import { CronExpressionParser } from 'cron-parser'
 import { z } from 'zod'
-import { Database } from '../core/database'
-import { EventQueue } from '../core/event-queue'
+import { createScheduledEvent, updateScheduledEvent, getDueScheduledEvents, deleteScheduledEvent } from '../core/database'
+import { type EventQueue } from '../core/event-queue'
 import { type Event } from '../types/events'
 
 // Schema for validating schedule patterns
@@ -89,15 +89,13 @@ function isValidCronExpression(pattern: string): boolean {
 
 /**
  * Creates a new scheduled event in the database
- * @param db The database instance
  * @param pattern The schedule pattern (optional)
  * @param timeOffset The natural language time offset (optional)
  * @param prompt The prompt to be sent
  * @param channelId The Discord channel ID to send the event to
  * @returns The ID of the created event
  */
-export async function createScheduledEvent(
-	db: Database,
+export async function scheduleEvent(
 	pattern: SchedulePattern,
 	timeOffset: TimeOffset,
 	prompt: string,
@@ -137,43 +135,39 @@ export async function createScheduledEvent(
 		throw new Error('Either pattern or timeOffset must be provided')
 	}
 
-	return db.createScheduledEvent(
+	return createScheduledEvent(
 		pattern || null,
 		prompt,
 		channelId,
-		nextTriggerAt,
+		new Date(nextTriggerAt),
 	)
 }
 
 /**
  * Updates a scheduled event after it has been triggered
- * @param db The database instance
  * @param eventId The ID of the event to update
  * @param pattern The schedule pattern (needed to calculate next trigger time)
  */
-export async function updateScheduledEvent(
-	db: Database,
+export async function updateScheduledEventAfterTrigger(
 	eventId: string,
 	pattern: SchedulePattern,
 ): Promise<void> {
 	if (!pattern) {
-		return db.deleteScheduledEvent(eventId)
+		return deleteScheduledEvent(eventId)
 	}
 	const nextTriggerAt = calculateNextTriggerTime(pattern)
-	return db.updateScheduledEvent(eventId, nextTriggerAt)
+	return updateScheduledEvent(eventId, new Date(nextTriggerAt))
 }
 
 /**
  * Checks for due scheduled events and publishes them to the event queue
- * @param db The database instance
  * @param eventQueue The event queue instance
  */
 export async function checkAndPublishScheduledEvents(
-	db: Database,
 	eventQueue: EventQueue,
 ): Promise<void> {
 	try {
-		const dueEvents = db.getDueScheduledEvents()
+		const dueEvents = await getDueScheduledEvents()
 
 		for (const event of dueEvents) {
 			try {
@@ -192,7 +186,7 @@ export async function checkAndPublishScheduledEvents(
 				// Add to event queue
 				eventQueue.add(eventMessage)
 
-				await updateScheduledEvent(db, event.id, event.pattern)
+				await updateScheduledEventAfterTrigger(event.id, event.schedulePattern || undefined)
 			} catch (error) {
 				console.error('Error processing scheduled event:', {
 					eventId: event.id,
@@ -209,7 +203,7 @@ export async function checkAndPublishScheduledEvents(
 	}
 }
 
-export const scheduleTools = (db: Database, channelId: string) => ({
+export const scheduleTools = (channelId: string) => ({
 	create: tool({
 		description: `Create a new scheduled event that will trigger at a specific time or on a recurring schedule.
 		
@@ -238,8 +232,7 @@ export const scheduleTools = (db: Database, channelId: string) => ({
 				if (!pattern && !timeOffset) {
 					throw new Error('Either pattern or timeOffset must be provided')
 				}
-				const id = await createScheduledEvent(
-					db,
+				const id = await scheduleEvent(
 					pattern,
 					timeOffset,
 					prompt,
@@ -273,7 +266,7 @@ export const scheduleTools = (db: Database, channelId: string) => ({
 		parameters: z.object({}),
 		execute: async () => {
 			try {
-				const events = db.getDueScheduledEvents()
+				const events = await getDueScheduledEvents()
 				return events
 			} catch (error) {
 				console.error('Error listing scheduled events:', {
@@ -299,7 +292,7 @@ export const scheduleTools = (db: Database, channelId: string) => ({
 		}),
 		execute: async ({ id }) => {
 			try {
-				await db.deleteScheduledEvent(id)
+				await deleteScheduledEvent(id)
 				return { message: 'Scheduled event deleted successfully' }
 			} catch (error) {
 				console.error('Error deleting scheduled event:', {

@@ -1,162 +1,118 @@
-import { CoreMessage } from 'ai'
-import { join } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
-import { v4 as uuidv4 } from 'uuid'
+import { PrismaClient } from '@prisma/client'
+import { type CoreMessage } from 'ai'
 
-export class Database {
-	private db: DatabaseSync
+export const db = new PrismaClient()
 
-	constructor() {
-		const dbPath =
-			process.env.DATABASE_PATH ??
-			join(process.cwd(), 'data', 'discord-agent.db')
-		this.db = new DatabaseSync(dbPath)
-		this.db.exec('PRAGMA journal_mode = WAL') // Use Write-Ahead Logging
-		this.db.exec('PRAGMA busy_timeout = 5000') // Set busy timeout to 5 seconds
-		this.initialize()
-	}
+export async function addChannel(channelId: string): Promise<void> {
+	await db.monitoredChannel.upsert({
+		where: { channelId },
+		update: {},
+		create: { channelId }
+	})
+}
 
-	private initialize(): void {
-		this.db.exec(`
-      CREATE TABLE IF NOT EXISTS monitored_channels (
-        channel_id TEXT PRIMARY KEY,
-        created_at INTEGER NOT NULL
-      ) STRICT
-    `)
+export async function getChannels(): Promise<string[]> {
+	const channels = await db.monitoredChannel.findMany({
+		select: { channelId: true }
+	})
+	return channels.map(channel => channel.channelId)
+}
 
-		this.db.exec(`
-      CREATE TABLE IF NOT EXISTS scheduled_events (
-        id TEXT PRIMARY KEY,
-        schedule_pattern TEXT,
-        prompt TEXT NOT NULL,
-        channel_id TEXT NOT NULL,
-        last_triggered_at INTEGER,
-        next_trigger_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
-      ) STRICT
-    `)
+export async function channelExists(channelId: string): Promise<boolean> {
+	const channel = await db.monitoredChannel.findUnique({
+		where: { channelId }
+	})
+	return channel !== null
+}
 
-		this.db.exec(`
-      CREATE TABLE IF NOT EXISTS conversation_context (
-        id TEXT PRIMARY KEY,
-        channel_id TEXT NOT NULL,
-        message TEXT NOT NULL,
-		created_at INTEGER NOT NULL
-      ) STRICT
-    `)
-	}
-
-	async addChannel(channelId: string): Promise<void> {
-		const stmt = this.db.prepare(`
-      INSERT INTO monitored_channels (channel_id, created_at)
-      VALUES (?, ?)
-      ON CONFLICT (channel_id) DO NOTHING
-    `)
-		stmt.run(channelId, Date.now())
-	}
-
-	getChannels(): string[] {
-		const stmt = this.db.prepare('SELECT channel_id FROM monitored_channels')
-		const rows = stmt.all() as { channel_id: string }[]
-		return rows.map((row) => row.channel_id)
-	}
-
-	channelExists(channelId: string): boolean {
-		const stmt = this.db.prepare(
-			'SELECT 1 FROM monitored_channels WHERE channel_id = ?',
-		)
-		const result = stmt.get(channelId) as { '1': number } | undefined
-		return result !== undefined
-	}
-
-	async createScheduledEvent(
-		schedulePattern: string | null,
-		prompt: string,
-		channelId: string,
-		nextTriggerAt: number,
-	): Promise<string> {
-		const id = uuidv4()
-		const stmt = this.db.prepare(`
-      INSERT INTO scheduled_events (id, schedule_pattern, prompt, channel_id, next_trigger_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `)
-		stmt.run(id, schedulePattern, prompt, channelId, nextTriggerAt, Date.now())
-		return id
-	}
-
-	async updateScheduledEvent(
-		eventId: string,
-		nextTriggerAt: number,
-	): Promise<void> {
-		const stmt = this.db.prepare(`
-      UPDATE scheduled_events
-      SET last_triggered_at = ?,
-          next_trigger_at = ?
-      WHERE id = ?
-    `)
-		stmt.run(Date.now(), nextTriggerAt, eventId)
-	}
-
-	getDueScheduledEvents(): Array<{
-		id: string
-		prompt: string
-		pattern: string
-		channelId: string
-	}> {
-		const stmt = this.db.prepare(`
-      SELECT id, prompt, schedule_pattern as pattern, channel_id as channelId
-      FROM scheduled_events
-      WHERE next_trigger_at <= ?
-    `)
-		const events = stmt.all(Date.now()) as Array<{
-			id: string
-			prompt: string
-			pattern: string
-			channelId: string
-		}>
-		return events
-	}
-
-	async deleteScheduledEvent(eventId: string): Promise<void> {
-		const stmt = this.db.prepare('DELETE FROM scheduled_events WHERE id = ?')
-		const result = stmt.run(eventId)
-		if (result.changes === 0) {
-			throw new Error('Scheduled event not found')
+export async function createScheduledEvent(
+	schedulePattern: string | null,
+	prompt: string,
+	channelId: string,
+	nextTriggerAt: Date
+): Promise<string> {
+	const event = await db.scheduledEvent.create({
+		data: {
+			schedulePattern,
+			prompt,
+			channelId,
+			nextTriggerAt
 		}
-	}
+	})
+	return event.id
+}
 
-	async addMessageToContext(
-		channelId: string,
-		message: CoreMessage,
-	): Promise<void> {
-		const stmt = this.db.prepare(`
-      INSERT INTO conversation_context (id, channel_id, message, created_at)
-      VALUES (?, ?, ?, ?)
-    `)
-		stmt.run(uuidv4(), channelId, JSON.stringify(message), Date.now())
-	}
+export async function updateScheduledEvent(
+	eventId: string,
+	nextTriggerAt: Date
+): Promise<void> {
+	await db.scheduledEvent.update({
+		where: { id: eventId },
+		data: {
+			lastTriggeredAt: new Date(),
+			nextTriggerAt
+		}
+	})
+}
 
-	async getChannelContext(
-		channelId: string,
-		limit: number = 10,
-	): Promise<CoreMessage[]> {
-		const stmt = this.db.prepare(`
-      SELECT message
-      FROM conversation_context
-      WHERE channel_id = ?
-      ORDER BY created_at DESC
-      LIMIT ?
-    `)
-		const rows = stmt.all(channelId, limit) as Array<{
-			message: string
-		}>
-		return rows.map((row) => JSON.parse(row.message))
-	}
+export async function getDueScheduledEvents(): Promise<Array<{
+	id: string
+	prompt: string
+	schedulePattern: string | null
+	channelId: string
+}>> {
+	return await db.scheduledEvent.findMany({
+		where: {
+			nextTriggerAt: {
+				lte: new Date()
+			}
+		},
+		select: {
+			id: true,
+			prompt: true,
+			schedulePattern: true,
+			channelId: true
+		}
+	})
+}
 
-	async clearChannelContext(channelId: string): Promise<void> {
-		const stmt = this.db.prepare(
-			'DELETE FROM conversation_context WHERE channel_id = ?',
-		)
-		stmt.run(channelId)
-	}
+export async function deleteScheduledEvent(eventId: string): Promise<void> {
+	await db.scheduledEvent.delete({
+		where: { id: eventId }
+	})
+}
+
+export async function addMessageToContext(
+	channelId: string,
+	message: CoreMessage
+): Promise<void> {
+	await db.conversationContext.create({
+		data: {
+			channelId,
+			message: JSON.stringify(message)
+		}
+	})
+}
+
+export async function getChannelContext(
+	channelId: string,
+	limit: number = 10
+): Promise<CoreMessage[]> {
+	const messages = await db.conversationContext.findMany({
+		where: { channelId },
+		orderBy: { createdAt: 'desc' },
+		take: limit,
+		select: { message: true }
+	})
+	return messages.map(msg => JSON.parse(msg.message))
+}
+
+export async function clearChannelContext(channelId: string): Promise<void> {
+	await db.conversationContext.deleteMany({
+		where: { channelId }
+	})
+}
+
+export async function disconnect(): Promise<void> {
+	await db.$disconnect()
 }

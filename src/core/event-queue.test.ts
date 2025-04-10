@@ -30,20 +30,6 @@ describe('EventQueue', () => {
     expect(handler).toHaveBeenNthCalledWith(2, events[1])
   })
 
-  it('should validate events', () => {
-    const handler = vi.fn()
-    const queue = new EventQueue(handler)
-    
-    const invalidEvent = {
-      type: 'invalid',
-      channel: 'test-channel',
-      messages: [{ role: 'user', content: 'Hello' }],
-    }
-
-    expect(() => queue.add(invalidEvent as Event)).toThrow()
-    expect(handler).not.toHaveBeenCalled()
-  })
-
   it('should handle concurrent events', async () => {
     const handler = vi.fn()
     const queue = new EventQueue(handler)

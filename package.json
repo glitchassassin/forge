@@ -26,12 +26,14 @@
   },
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^0.4.5",
+    "@prisma/client": "^6.6.0",
     "ai": "^4.3.4",
     "chrono-node": "^2.8.0",
     "cron-parser": "^5.1.1",
     "discord.js": "^14.18.0",
     "dotenv": "^16.4.7",
     "openai": "^4.93.0",
+    "prisma": "^6.6.0",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
   },

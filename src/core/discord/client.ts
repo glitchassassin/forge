@@ -9,7 +9,7 @@ import {
 	Routes,
 } from 'discord.js'
 import { type Event } from '../../types/events'
-import { type Database } from '../database'
+import { addChannel, channelExists } from '../database'
 
 const COMMANDS = [
 	{
@@ -18,19 +18,14 @@ const COMMANDS = [
 	},
 ]
 
-const ONE_HOUR = 60 * 60 * 1000
-const MAX_MESSAGES = 100
-
 export class DiscordClient {
 	private client: Client
 	private rest: REST
 	private messageHandler?: (event: Event) => void
 	private token: string
-	private db: Database
 
-	constructor(token: string, db: Database) {
+	constructor(token: string) {
 		this.token = token
-		this.db = db
 		this.client = new Client({
 			intents: [
 				GatewayIntentBits.Guilds,
@@ -62,7 +57,7 @@ export class DiscordClient {
 
 			if (interaction.commandName === 'monitor') {
 				const channelId = interaction.channelId
-				await this.db.addChannel(channelId)
+				await addChannel(channelId)
 				await interaction.reply({
 					content: `Now monitoring this channel for messages.`,
 					ephemeral: true,
@@ -72,7 +67,7 @@ export class DiscordClient {
 
 		this.client.on('messageCreate', async (message) => {
 			// Ignore bot messages and non-monitored channels
-			if (message.author.bot || !this.db.channelExists(message.channelId))
+			if (message.author.bot || !(await channelExists(message.channelId)))
 				return
 
 			try {

@@ -22,3 +22,16 @@ https://github.com/getzep/graphiti/blob/main/mcp_server/README.md
 
 This might work well if we have a parallel memory processor reviewing and
 cataloging conversations.
+
+---
+
+We should have a mechanism to:
+
+1. Populate the system prompt
+2. Query for memory directly
+3. Update memory explicitly
+4. Update memory asynchronously when conversation goes idle
+
+We can set up a Docker Compose file with [the mcp server](https://github.com/getzep/graphiti/blob/main/mcp_server/docker-compose.yml) and [the API server](https://github.com/getzep/graphiti/blob/main/docker-compose.yml).
+
+For now, we'll keep things simple and just start with the MCP server.

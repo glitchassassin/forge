@@ -1,0 +1,5 @@
+- [ ] Set up a parallel Archive job that processes past messages into Graphiti
+- [ ] Experiment with better prompts for Graphiti - perhaps a dedicated agent?
+- [ ] Split out MCP sub-agents
+- [ ] Set up slash commands to create new chat channels
+  - Maybe initialize channel category automatically?

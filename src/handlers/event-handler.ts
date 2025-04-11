@@ -4,6 +4,7 @@ import { type DiscordClient } from '../core/discord/client'
 import { QUASAR_ALPHA } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
 import { GITHUB } from '../tools/github'
+import { GRAPHITI } from '../tools/graphiti'
 import { scheduleTools } from '../tools/schedule'
 import { withConfirmation } from '../tools/withConfirmation'
 import { withLogging } from '../tools/withLogging'
@@ -11,6 +12,11 @@ import { type Event } from '../types/events'
 
 export const createEventHandler = (discordClient: DiscordClient) => {
 	return async (event: Event): Promise<void> => {
+		console.log('Processing event:', {
+			type: event.type,
+			channel: event.channel,
+			messageCount: event.messages.length,
+		})
 		let currentMessage = ''
 
 		try {
@@ -33,6 +39,7 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 						return discordClient.requestConfirmation(event.channel, content)
 					}),
 					...withLogging(scheduleTools(event.channel)),
+					...withLogging(await GRAPHITI.tools()),
 				},
 				maxSteps: 10,
 			})

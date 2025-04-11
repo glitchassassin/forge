@@ -3,8 +3,9 @@ import { addMessageToContext, getChannelContext } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
 import { GEMINI_2_5_PRO_EXPERIMENTAL } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
-import { githubAgent } from '../tools/github'
+import { GITHUB } from '../tools/github'
 import { GRAPHITI } from '../tools/graphiti'
+import { OBSIDIAN } from '../tools/obsidian'
 import { scheduleTools } from '../tools/schedule'
 import { withLogging } from '../tools/withLogging'
 import { type Event } from '../types/events'
@@ -34,9 +35,10 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 				messages: allMessages,
 				system: MAIN_PROMPT(),
 				tools: {
-					...withLogging({ githubAgent }),
+					...withLogging(await GITHUB.tools()),
 					...withLogging(scheduleTools(event.channel)),
 					...withLogging(await GRAPHITI.tools()),
+					...withLogging(await OBSIDIAN.tools()),
 				},
 				maxSteps: 10,
 			})

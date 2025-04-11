@@ -1,14 +1,14 @@
 import { streamText } from 'ai'
 import { addMessageToContext, getChannelContext } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
-import { OPTIMUS_ALPHA } from '../llm/models'
+import { GEMINI_2_5_PRO_EXPERIMENTAL } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
-import { GITHUB } from '../tools/github'
+import { githubAgent } from '../tools/github'
 import { GRAPHITI } from '../tools/graphiti'
 import { scheduleTools } from '../tools/schedule'
-import { withConfirmation } from '../tools/withConfirmation'
 import { withLogging } from '../tools/withLogging'
 import { type Event } from '../types/events'
+import { segmentMessage } from '../utils/message-segmentation'
 
 export const createEventHandler = (discordClient: DiscordClient) => {
 	return async (event: Event): Promise<void> => {
@@ -30,14 +30,11 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 			const allMessages = [...previousContext, ...event.messages]
 
 			const stream = streamText({
-				model: OPTIMUS_ALPHA,
+				model: GEMINI_2_5_PRO_EXPERIMENTAL,
 				messages: allMessages,
 				system: MAIN_PROMPT(),
 				tools: {
-					...withConfirmation(await GITHUB.tools(), async (toolName, args) => {
-						const content = `Do you want to execute the ${toolName} tool with these arguments?\n\`\`\`json\n${JSON.stringify(args, null, 2)}\n\`\`\``
-						return discordClient.requestConfirmation(event.channel, content)
-					}),
+					...withLogging({ githubAgent }),
 					...withLogging(scheduleTools(event.channel)),
 					...withLogging(await GRAPHITI.tools()),
 				},
@@ -56,7 +53,11 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 						for (let i = 0; i < paragraphs.length - 1; i++) {
 							const paragraph = paragraphs[i]?.trim()
 							if (paragraph) {
-								await discordClient.sendMessage(event.channel, paragraph)
+								// Use message segmentation for each paragraph
+								const segments = segmentMessage(paragraph)
+								for (const segment of segments) {
+									await discordClient.sendMessage(event.channel, segment)
+								}
 							}
 						}
 						// Keep the last (potentially incomplete) paragraph
@@ -65,10 +66,10 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 				} else {
 					// If we have any pending text, send it first
 					if (currentMessage.trim()) {
-						await discordClient.sendMessage(
-							event.channel,
-							currentMessage.trim(),
-						)
+						const segments = segmentMessage(currentMessage.trim())
+						for (const segment of segments) {
+							await discordClient.sendMessage(event.channel, segment)
+						}
 						currentMessage = ''
 					}
 				}
@@ -78,7 +79,10 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 
 			// Send any remaining text
 			if (currentMessage.trim()) {
-				await discordClient.sendMessage(event.channel, currentMessage.trim())
+				const segments = segmentMessage(currentMessage.trim())
+				for (const segment of segments) {
+					await discordClient.sendMessage(event.channel, segment)
+				}
 			}
 
 			// Store the conversation in context
@@ -90,6 +94,7 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 			for (const message of (await stream.response).messages) {
 				await addMessageToContext(event.channel, message)
 			}
+			console.log('Response finishReason:', stream.finishReason)
 		} catch (error) {
 			console.error('Error processing event:', error)
 			await discordClient.sendMessage(

@@ -1,9 +1,10 @@
 - [ ] Set up a parallel Archive job that processes past messages into Graphiti
 - [ ] Experiment with better prompts for Graphiti - perhaps a dedicated agent?
 - [ ] Pull Graphiti MCP into this repo and customize it
-- [ ] Split out MCP sub-agents
+- [x] Split out MCP sub-agents
 - [x] Set up slash commands to create new chat channels
   - Maybe initialize channel category automatically?
+- [ ] Configure models dynamically
 
 # MCP Servers to Support
 

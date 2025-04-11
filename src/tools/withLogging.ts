@@ -28,18 +28,23 @@ export const withLogging = <T extends ToolSet>(
 		wrappedTools[toolName as keyof T] = {
 			...originalTool,
 			execute: async (args: unknown[], options: ToolExecutionOptions) => {
-				// Log the tool execution
-				logger(`Executing tool: ${toolName} with args: ${JSON.stringify(args)}`)
+				try {
+					// Log the tool execution
+					logger(
+						`Executing tool: ${toolName} with args: ${JSON.stringify(args)}`,
+					)
+					// Execute the original tool
+					const result = await originalTool.execute(args, options)
+					// Log the result
+					logger(
+						`Tool ${toolName} completed with result: ${JSON.stringify(result)}`,
+					)
 
-				// Execute the original tool
-				const result = await originalTool.execute(args, options)
-
-				// Log the result
-				logger(
-					`Tool ${toolName} completed with result: ${JSON.stringify(result)}`,
-				)
-
-				return result
+					return result
+				} catch (error) {
+					logger(`Tool ${toolName} failed with error: ${error}`)
+					throw error
+				}
 			},
 		} as unknown as T[keyof T]
 	}

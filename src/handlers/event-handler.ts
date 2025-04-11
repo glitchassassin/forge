@@ -1,7 +1,7 @@
 import { streamText } from 'ai'
 import { addMessageToContext, getChannelContext } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
-import { QUASAR_ALPHA } from '../llm/models'
+import { OPTIMUS_ALPHA } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
 import { GITHUB } from '../tools/github'
 import { GRAPHITI } from '../tools/graphiti'
@@ -30,7 +30,7 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 			const allMessages = [...previousContext, ...event.messages]
 
 			const stream = streamText({
-				model: QUASAR_ALPHA,
+				model: OPTIMUS_ALPHA,
 				messages: allMessages,
 				system: MAIN_PROMPT(),
 				tools: {

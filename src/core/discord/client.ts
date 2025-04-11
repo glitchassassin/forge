@@ -29,6 +29,10 @@ const COMMANDS = [
 		description: 'Start monitoring this channel for messages',
 	},
 	{
+		name: 'new',
+		description: 'Create a new forge channel',
+	},
+	{
 		name: 'reset',
 		description: 'Reset various aspects of the bot',
 		options: [
@@ -134,6 +138,36 @@ export class DiscordClient {
 					content: `Now monitoring this channel for messages.`,
 					flags: MessageFlags.Ephemeral,
 				})
+			} else if (interaction.commandName === 'new') {
+				if (!interaction.guildId) {
+					await interaction.reply({
+						content: 'This command can only be used in a server.',
+						flags: MessageFlags.Ephemeral,
+					})
+					return
+				}
+
+				try {
+					const nextNumber = await this.findNextChannelNumber(
+						interaction.guildId,
+					)
+					const channelId = await this.createForgeChannel(
+						interaction.guildId,
+						nextNumber,
+					)
+					await addChannel(channelId)
+
+					await interaction.reply({
+						content: `Created new channel <#${channelId}> and started monitoring it.`,
+						flags: MessageFlags.Ephemeral,
+					})
+				} catch (error) {
+					console.error('Error creating new channel:', error)
+					await interaction.reply({
+						content: 'Failed to create new channel. Please try again later.',
+						flags: MessageFlags.Ephemeral,
+					})
+				}
 			} else if (interaction.commandName === 'reset') {
 				const resetType = interaction.options.getString('type', true)
 				const channelId = interaction.channelId
@@ -304,5 +338,59 @@ export class DiscordClient {
 			collapsedContent,
 			collapsed,
 		)
+	}
+
+	private async findNextChannelNumber(guildId: string): Promise<number> {
+		const guild = await this.client.guilds.fetch(guildId)
+		if (!guild) throw new Error('Guild not found')
+
+		const channels = await guild.channels.fetch()
+		const forgeChannels = channels.filter(
+			(channel) =>
+				channel?.name.startsWith('forge-') &&
+				channel.type === ChannelType.GuildText,
+		)
+
+		const numbers = forgeChannels.map((channel) => {
+			const match = channel?.name?.match(/forge-(\d+)/)
+			return match?.[1] ? parseInt(match[1]) : 0
+		})
+
+		let nextNumber = 1
+		while (numbers.includes(nextNumber)) {
+			nextNumber++
+		}
+
+		return nextNumber
+	}
+
+	private async createForgeChannel(
+		guildId: string,
+		number: number,
+	): Promise<string> {
+		const guild = await this.client.guilds.fetch(guildId)
+		if (!guild) throw new Error('Guild not found')
+
+		// Find or create the forge category
+		let forgeCategory = guild.channels.cache.find(
+			(channel) =>
+				channel.type === ChannelType.GuildCategory &&
+				channel.name.toLowerCase() === 'forge',
+		)
+
+		if (!forgeCategory) {
+			forgeCategory = await guild.channels.create({
+				name: 'forge',
+				type: ChannelType.GuildCategory,
+			})
+		}
+
+		const channel = await guild.channels.create({
+			name: `forge-${number}`,
+			type: ChannelType.GuildText,
+			parent: forgeCategory.id,
+		})
+
+		return channel.id
 	}
 }

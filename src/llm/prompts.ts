@@ -26,4 +26,9 @@ Before starting any task, retrieve relevant memory from the knowledge graph.
 When you learn any information about the user's preferences, procedures, or requirements,
 record it in the knowledge graph.
 
+## Instructions for Making Notes
+
+When you create notes in the filesystem, the default path is /data. If the user doesn't
+specify a path or filename, pick something reasonable - you can always change it later.
+
 `

@@ -1,11 +1,12 @@
 import 'dotenv/config'
 import { DiscordClient } from './core/discord/client'
 import { EventQueue } from './core/event-queue'
+import { logger } from './core/logger'
 import { createEventHandler } from './handlers/event-handler'
 import { checkAndPublishScheduledEvents } from './tools/schedule'
 
 if (!process.env.DISCORD_TOKEN) {
-	console.error('DISCORD_TOKEN is not set in .env file')
+	logger.error('DISCORD_TOKEN is not set in .env file')
 	process.exit(1)
 }
 
@@ -20,8 +21,8 @@ discordClient.onMessage((event) => eventQueue.add(event))
 setInterval(() => checkAndPublishScheduledEvents(eventQueue), 60 * 1000)
 
 discordClient.start().catch((error) => {
-	console.error('Failed to start Discord client:', error)
+	logger.error('Failed to start Discord client', { error })
 	process.exit(1)
 })
 
-console.log('Bot is running')
+logger.info('Bot is running')

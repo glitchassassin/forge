@@ -10,6 +10,7 @@ import {
 	updateScheduledEvent,
 } from '../core/database'
 import { type EventQueue } from '../core/event-queue'
+import { logger } from '../core/logger'
 import { type Event } from '../types/events'
 
 // Schema for validating schedule patterns
@@ -111,7 +112,7 @@ export async function scheduleEvent(
 
 	if (timeOffset) {
 		// Parse natural language time offset
-		console.log('Parsing time offset:', {
+		logger.debug('Parsing time offset', {
 			input: timeOffset,
 			currentTime: new Date().toISOString(),
 		})
@@ -120,19 +121,19 @@ export async function scheduleEvent(
 			throw new Error('Invalid time offset')
 		}
 		nextTriggerAt = result.getTime()
-		console.log('Parsed time offset:', {
+		logger.debug('Parsed time offset', {
 			input: timeOffset,
 			result: new Date(nextTriggerAt).toISOString(),
 			milliseconds: nextTriggerAt,
 		})
 	} else if (pattern) {
 		// Parse cron expression
-		console.log('Calculating next trigger time for cron pattern:', {
+		logger.debug('Calculating next trigger time for cron pattern', {
 			pattern,
 			currentTime: new Date().toISOString(),
 		})
 		nextTriggerAt = calculateNextTriggerTime(pattern)
-		console.log('Calculated next trigger time:', {
+		logger.debug('Calculated next trigger time', {
 			pattern,
 			result: new Date(nextTriggerAt).toISOString(),
 			milliseconds: nextTriggerAt,
@@ -197,7 +198,7 @@ export async function checkAndPublishScheduledEvents(
 					event.schedulePattern || undefined,
 				)
 			} catch (error) {
-				console.error('Error processing scheduled event:', {
+				logger.error('Error processing scheduled event', {
 					eventId: event.id,
 					error: error instanceof Error ? error.message : 'Unknown error',
 					stack: error instanceof Error ? error.stack : undefined,
@@ -205,7 +206,7 @@ export async function checkAndPublishScheduledEvents(
 			}
 		}
 	} catch (error) {
-		console.error('Error in checkAndPublishScheduledEvents:', {
+		logger.error('Error in checkAndPublishScheduledEvents', {
 			error: error instanceof Error ? error.message : 'Unknown error',
 			stack: error instanceof Error ? error.stack : undefined,
 		})
@@ -244,7 +245,7 @@ export const scheduleTools = (channelId: string) => ({
 				const id = await scheduleEvent(pattern, timeOffset, prompt, channelId)
 				return { id, message: 'Scheduled event created successfully' }
 			} catch (error) {
-				console.error('Error creating scheduled event:', {
+				logger.error('Error creating scheduled event', {
 					pattern,
 					timeOffset,
 					channelId,
@@ -296,7 +297,7 @@ export const scheduleTools = (channelId: string) => ({
 				await deleteScheduledEvent(id)
 				return { message: 'Scheduled event deleted successfully' }
 			} catch (error) {
-				console.error('Error deleting scheduled event:', {
+				logger.error('Error deleting scheduled event', {
 					id,
 					error: error instanceof Error ? error.message : 'Unknown error',
 					stack: error instanceof Error ? error.stack : undefined,

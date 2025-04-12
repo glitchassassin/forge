@@ -2,8 +2,10 @@ import fs from 'fs'
 import { parse } from 'yaml'
 import { z } from 'zod'
 
+const DEFAULT_MODEL = 'openrouter/optimus-alpha'
+
 const mcpConfigSchema = z.object({
-	model: z.string().default('google/gemini-2.5-pro-exp-03-25:free'),
+	model: z.string().default(DEFAULT_MODEL),
 	clients: z.record(
 		z.string(),
 		z.object({
@@ -14,7 +16,7 @@ const mcpConfigSchema = z.object({
 			agent: z
 				.object({
 					enabled: z.boolean().default(false),
-					model: z.string().default('google/gemini-2.5-pro-exp-03-25:free'),
+					model: z.string().default(DEFAULT_MODEL),
 					maxSteps: z.number().default(10),
 					prompt: z
 						.string()

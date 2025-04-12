@@ -2,6 +2,7 @@ import { streamText } from 'ai'
 import { config } from '../config'
 import { addMessageToContext, getChannelContext } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
+import { logger } from '../core/logger'
 import { openrouter } from '../llm/models'
 import { MAIN_PROMPT } from '../llm/prompts'
 import { tools } from '../tools/mcp-loader'
@@ -19,7 +20,7 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 	const model = openrouter(config.model)
 
 	return async (event: Event): Promise<void> => {
-		console.log('Processing event:', {
+		logger.debug('Processing event', {
 			type: event.type,
 			channel: event.channel,
 			messageCount: event.messages.length,
@@ -70,7 +71,7 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 						currentMessage = paragraphs[paragraphs.length - 1] ?? ''
 					}
 				} else if (chunk.type === 'error') {
-					console.error('Stream interrupted with error:', chunk.error)
+					logger.error('Stream interrupted with error', { error: chunk.error })
 
 					// Handle specific error types
 					const error = chunk.error as StreamError
@@ -92,7 +93,7 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 					}
 
 					// Log detailed error information for debugging
-					console.error('Detailed error information:', {
+					logger.error('Detailed error information', {
 						error: chunk.error,
 						channel: event.channel,
 						eventType: event.type,
@@ -135,10 +136,10 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 				await addMessageToContext(event.channel, message)
 			}
 			const finishReason = await stream.finishReason
-			console.log('Response finishReason:', finishReason)
+			logger.debug('Response finishReason', { finishReason })
 
 			if (finishReason === 'error') {
-				console.error('Stream finished with error:', {
+				logger.error('Stream finished with error', {
 					channel: event.channel,
 					eventType: event.type,
 					messageCount: event.messages.length,
@@ -154,10 +155,10 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 
 			const warnings = await stream.warnings
 			if (warnings) {
-				console.warn('Stream warnings:', warnings)
+				logger.warn('Stream warnings', { warnings })
 			}
 		} catch (error) {
-			console.error('Error processing event:', error)
+			logger.error('Error processing event', { error })
 
 			// Provide more specific error messages based on the error type
 			if (error instanceof Error) {

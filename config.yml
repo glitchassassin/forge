@@ -35,22 +35,22 @@ clients:
       - -i
       - --rm
       - --mount
-      - type=bind,src=./data/files,dst=/projects/files
+      - type=bind,src=./data/files,dst=/data
       - mcp/filesystem
-      - /projects/files
+      - /data
     agent:
       enabled: false
 
-  # fetch:
-  #   type: stdio
-  #   command: docker
-  #   args:
-  #     - run
-  #     - -i
-  #     - --rm
-  #     - mcp/fetch
-  #   agent:
-  #     enabled: false
+  fetch:
+    type: stdio
+    command: docker
+    args:
+      - run
+      - -i
+      - --rm
+      - mcp/fetch
+    agent:
+      enabled: false
 
   brave-search:
     type: stdio

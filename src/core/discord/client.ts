@@ -22,6 +22,7 @@ import {
 	getCollapsibleMessage,
 	toggleCollapsibleMessage,
 } from '../database/collapsible-messages'
+import { logger } from '../logger'
 
 const COMMANDS = [
 	{
@@ -91,7 +92,7 @@ export class DiscordClient {
 
 	private setupEventHandlers(): void {
 		this.client.on('ready', () => {
-			console.log(`Logged in as ${this.client.user?.tag}`)
+			logger.info(`Logged in as ${this.client.user?.tag}`)
 		})
 
 		this.client.on('interactionCreate', async (interaction) => {
@@ -162,7 +163,7 @@ export class DiscordClient {
 						flags: MessageFlags.Ephemeral,
 					})
 				} catch (error) {
-					console.error('Error creating new channel:', error)
+					logger.error('Error creating new channel', { error })
 					await interaction.reply({
 						content: 'Failed to create new channel. Please try again later.',
 						flags: MessageFlags.Ephemeral,
@@ -228,7 +229,7 @@ export class DiscordClient {
 				// Call the message handler if it exists
 				this.messageHandler?.(event)
 			} catch (error) {
-				console.error('Error processing message:', error)
+				logger.error('Error processing message', { error })
 			}
 		})
 	}
@@ -241,9 +242,9 @@ export class DiscordClient {
 			await this.rest.put(Routes.applicationCommands(clientId), {
 				body: COMMANDS,
 			})
-			console.log('Successfully registered slash commands')
+			logger.info('Successfully registered slash commands')
 		} catch (error) {
-			console.error('Error registering commands:', error)
+			logger.error('Error registering commands', { error })
 		}
 	}
 
@@ -298,7 +299,7 @@ export class DiscordClient {
 
 			return response.customId === 'approve'
 		} catch (error) {
-			console.error('Error requesting confirmation:', error)
+			logger.error('Error requesting confirmation', { error })
 			// Remove the buttons on timeout
 			await message.edit({
 				components: [],

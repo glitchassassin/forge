@@ -12,7 +12,24 @@
 - [x] Scheduler (for re-prompting)
 - [x] Obsidian
 - [ ] Code interpreter
+  - https://github.com/Automata-Labs-team/code-sandbox-mcp
 - [ ] ICS calendar reader
 - [ ] Home Assistant
-- [ ] Web search/scraping
-- [ ] Azure Devops
+  - https://github.com/tevonsb/homeassistant-mcp
+  - https://github.com/voska/hass-mcp
+- [x] Web search/scraping
+  - https://github.com/executeautomation/mcp-playwright
+- [ ] Azure Devops: https://github.com/Vortiago/mcp-azure-devops
+- [ ] Memory
+  - https://github.com/basicmachines-co/basic-memory
+  - https://github.com/modelcontextprotocol/servers/tree/main/src/memory
+  - Mem0 example: https://github.com/mem0ai/mem0-mcp
+- [ ] Gmail
+  - https://github.com/GongRzhe/Gmail-MCP-Server
+  - https://github.com/baryhuang/mcp-headless-gmail
+- [ ] RAG?
+  - https://github.com/chroma-core/chroma-mcp
+- [ ] Other Interesting Options
+  - https://github.com/hichana/goalstory-mcp
+  - https://github.com/liuyoshio/mcp-compass
+  - https://github.com/hungryrobot1/MCP-PIF

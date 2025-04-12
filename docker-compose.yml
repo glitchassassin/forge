@@ -2,8 +2,8 @@ services:
   neo4j:
     image: neo4j:5.26.0
     ports:
-      - "7474:7474" # HTTP
-      - "7687:7687" # Bolt
+      - '7474:7474' # HTTP
+      - '7687:7687' # Bolt
     environment:
       - NEO4J_AUTH=neo4j/demodemo
       - NEO4J_server_memory_heap_initial__size=512m
@@ -13,7 +13,7 @@ services:
       - neo4j_data:/data
       - neo4j_logs:/logs
     healthcheck:
-      test: ["CMD", "wget", "-O", "/dev/null", "http://localhost:7474"]
+      test: ['CMD', 'wget', '-O', '/dev/null', 'http://localhost:7474']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,8 +36,28 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PATH=/root/.local/bin:${PATH}
     ports:
-      - "7575:8000" # Expose the MCP server via HTTP for SSE transport
-    command: ["uv", "run", "graphiti_mcp_server.py", "--transport", "sse"]
+      - '7575:8000' # Expose the MCP server via HTTP for SSE transport
+    command: ['uv', 'run', 'graphiti_mcp_server.py', '--transport', 'sse']
+
+  obsidian-mcp:
+    image: supercorp/supergateway
+    ports:
+      - '7576:8000' # Expose the MCP server via HTTP for SSE transport
+    volumes:
+      - ${OBSIDIAN_VAULT_PATH}:/vault
+    command:
+      [
+        '--stdio',
+        'npx -y obsidian-mcp /vault',
+        '--port',
+        '8000',
+        '--baseUrl',
+        'http://localhost:7576',
+        '--ssePath',
+        '/sse',
+        '--messagePath',
+        '/message',
+      ]
 
 volumes:
   neo4j_data:

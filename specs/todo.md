@@ -10,7 +10,7 @@
 
 - [x] GitHub
 - [x] Scheduler (for re-prompting)
-- [ ] Obsidian
+- [x] Obsidian
 - [ ] Code interpreter
 - [ ] ICS calendar reader
 - [ ] Home Assistant

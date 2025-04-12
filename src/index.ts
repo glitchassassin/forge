@@ -23,3 +23,5 @@ discordClient.start().catch((error) => {
 	console.error('Failed to start Discord client:', error)
 	process.exit(1)
 })
+
+console.log('Bot is running')

@@ -1,7 +1,7 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { type LanguageModelV1 } from 'ai'
 
-const openrouter = createOpenRouter({
+export const openrouter = createOpenRouter({
 	apiKey: process.env.OPENROUTER_API_KEY,
 })
 

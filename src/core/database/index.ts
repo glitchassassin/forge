@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { type CoreMessage } from 'ai'
+import { config } from '../../config'
 
 export const db = new PrismaClient()
 
@@ -7,7 +8,10 @@ export async function addChannel(channelId: string): Promise<void> {
 	await db.monitoredChannel.upsert({
 		where: { channelId },
 		update: {},
-		create: { channelId },
+		create: {
+			channelId,
+			model: config.model,
+		},
 	})
 }
 
@@ -140,5 +144,15 @@ export async function getScheduledEventsForChannel(channelId: string): Promise<
 		orderBy: {
 			nextTriggerAt: 'asc',
 		},
+	})
+}
+
+export async function updateChannelModel(
+	channelId: string,
+	model: string,
+): Promise<void> {
+	await db.monitoredChannel.update({
+		where: { channelId },
+		data: { model },
 	})
 }

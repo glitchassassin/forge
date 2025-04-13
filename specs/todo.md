@@ -1,24 +1,26 @@
+- [x] Split out MCP sub-agents
+- [x] Set up slash commands to create new chat channels
+- [x] Configure models dynamically
 - [ ] Set up a parallel Archive job that processes past messages into Graphiti
 - [ ] Experiment with better prompts for Graphiti - perhaps a dedicated agent?
 - [ ] Pull Graphiti MCP into this repo and customize it
-- [x] Split out MCP sub-agents
-- [x] Set up slash commands to create new chat channels
   - Maybe initialize channel category automatically?
-- [ ] Configure models dynamically
+- [ ] Figure out deployment - how can I dev on my laptop and keep it running
+      when I'm not on my laptop?
 
 # MCP Servers to Support
 
 - [x] GitHub
 - [x] Scheduler (for re-prompting)
 - [x] Obsidian
+- [x] Web search/scraping
+  - https://github.com/executeautomation/mcp-playwright
 - [ ] Code interpreter
   - https://github.com/Automata-Labs-team/code-sandbox-mcp
 - [ ] ICS calendar reader
 - [ ] Home Assistant
   - https://github.com/tevonsb/homeassistant-mcp
   - https://github.com/voska/hass-mcp
-- [x] Web search/scraping
-  - https://github.com/executeautomation/mcp-playwright
 - [ ] Azure Devops: https://github.com/Vortiago/mcp-azure-devops
 - [ ] Memory
   - https://github.com/basicmachines-co/basic-memory

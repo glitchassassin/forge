@@ -1,6 +1,6 @@
 import { streamText } from 'ai'
 import { config } from '../config'
-import { addMessageToContext, getChannelContext } from '../core/database'
+import { addMessageToContext, getChannelContext, db } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
 import { logger } from '../core/logger'
 import { openrouter } from '../llm/models'
@@ -17,8 +17,6 @@ interface StreamError {
 }
 
 export const createEventHandler = (discordClient: DiscordClient) => {
-	const model = openrouter(config.model)
-
 	return async (event: Event): Promise<void> => {
 		logger.debug('Processing event', {
 			type: event.type,
@@ -28,6 +26,12 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 		let currentMessage = ''
 
 		try {
+			// Get the channel's model, falling back to config model if not set
+			const channel = await db.monitoredChannel.findUnique({
+				where: { channelId: event.channel },
+			})
+			const model = openrouter(channel?.model ?? config.model)
+
 			// Start typing indicator
 			await discordClient.startTyping(event.channel)
 

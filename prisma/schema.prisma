@@ -15,6 +15,7 @@ datasource db {
 
 model MonitoredChannel {
   channelId String   @id @map("channel_id")
+  model     String
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("monitored_channels")

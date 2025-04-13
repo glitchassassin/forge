@@ -9,6 +9,7 @@ import {
 	REST,
 	Routes,
 } from 'discord.js'
+import { availableModelsWithTools } from '../../config/available-models'
 import { type Event } from '../../types/events'
 import {
 	addChannel,
@@ -16,6 +17,7 @@ import {
 	clearChannelContext,
 	deleteScheduledEvent,
 	getDueScheduledEvents,
+	updateChannelModel,
 } from '../database'
 import {
 	createCollapsibleMessage,
@@ -32,6 +34,19 @@ const COMMANDS = [
 	{
 		name: 'new',
 		description: 'Create a new forge channel',
+	},
+	{
+		name: 'model',
+		description: 'Set the model for this channel',
+		options: [
+			{
+				name: 'model',
+				description: 'The model to use',
+				type: 3, // STRING
+				required: true,
+				autocomplete: true,
+			},
+		],
 	},
 	{
 		name: 'reset',
@@ -96,6 +111,24 @@ export class DiscordClient {
 		})
 
 		this.client.on('interactionCreate', async (interaction) => {
+			if (interaction.isAutocomplete()) {
+				if (interaction.commandName === 'model') {
+					const focusedValue = interaction.options.getFocused()
+					const filtered = availableModelsWithTools
+						.filter((model) =>
+							model.id.toLowerCase().includes(focusedValue.toLowerCase()),
+						)
+						.slice(0, 25)
+					await interaction.respond(
+						filtered.map((model) => ({
+							name: model.name,
+							value: model.id,
+						})),
+					)
+				}
+				return
+			}
+
 			if (
 				interaction.isButton() &&
 				interaction.customId === 'toggle_collapse'
@@ -169,6 +202,16 @@ export class DiscordClient {
 						flags: MessageFlags.Ephemeral,
 					})
 				}
+			} else if (interaction.commandName === 'model') {
+				const model = interaction.options.getString('model', true)
+				const channelId = interaction.channelId
+
+				await updateChannelModel(channelId, model)
+
+				await interaction.reply({
+					content: `Model set to ${model} for this channel.`,
+					flags: MessageFlags.Ephemeral,
+				})
 			} else if (interaction.commandName === 'reset') {
 				const resetType = interaction.options.getString('type', true)
 				const channelId = interaction.channelId

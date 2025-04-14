@@ -12,6 +12,7 @@ import {
 import { config } from '../../config'
 import { availableModelsWithTools } from '../../config/available-models'
 import { type Event } from '../../types/events'
+import { triggerUpdate } from '../../utils/process'
 import {
 	addChannel,
 	channelExists,
@@ -86,6 +87,10 @@ const COMMANDS = [
 				required: true,
 			},
 		],
+	},
+	{
+		name: 'update',
+		description: 'Update the bot to the latest version',
 	},
 ]
 
@@ -283,6 +288,15 @@ export class DiscordClient {
 					content,
 					flags: MessageFlags.Ephemeral,
 				})
+			} else if (interaction.commandName === 'update') {
+				await interaction.reply({
+					content:
+						'Starting update process... The bot will restart automatically.',
+					flags: MessageFlags.Ephemeral,
+				})
+
+				// Trigger the update process
+				triggerUpdate()
 			}
 		})
 

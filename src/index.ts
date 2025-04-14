@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { config } from './config'
 import { DiscordClient } from './core/discord/client'
 import { EventQueue } from './core/event-queue'
 import { logger } from './core/logger'
@@ -26,3 +27,4 @@ discordClient.start().catch((error) => {
 })
 
 logger.info('Bot is running')
+discordClient.logStatus(`Bot "${config.name}" is running`)

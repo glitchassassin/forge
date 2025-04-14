@@ -100,6 +100,7 @@ export class DiscordClient {
 	private messageHandler?: (event: Event) => void
 	private token: string
 	private isActive: boolean = true
+	private statusChannelId?: string
 
 	constructor(token: string) {
 		this.token = token
@@ -489,5 +490,69 @@ export class DiscordClient {
 		})
 
 		return channel.id
+	}
+
+	public async logStatus(content: string): Promise<void> {
+		try {
+			// If we don't have a cached status channel ID, find or create one
+			if (!this.statusChannelId) {
+				const guilds = await this.client.guilds.fetch()
+				const guild = guilds.first()
+
+				if (!guild) {
+					throw new Error('No guilds found for the bot')
+				}
+
+				// Get the full guild object to access channels
+				const fullGuild = await this.client.guilds.fetch(guild.id)
+
+				// Find or create the status channel
+				const channels = await fullGuild.channels.fetch()
+				let statusChannel = channels.find(
+					(channel): channel is NonNullable<typeof channel> =>
+						channel?.name === 'status' &&
+						channel.type === ChannelType.GuildText,
+				)
+
+				if (!statusChannel) {
+					// Find or create the forge category
+					let forgeCategory = channels.find(
+						(channel): channel is NonNullable<typeof channel> =>
+							channel?.type === ChannelType.GuildCategory &&
+							channel.name.toLowerCase() === 'forge',
+					)
+
+					if (!forgeCategory) {
+						forgeCategory = await fullGuild.channels.create({
+							name: 'forge',
+							type: ChannelType.GuildCategory,
+						})
+					}
+
+					statusChannel = await fullGuild.channels.create({
+						name: 'status',
+						type: ChannelType.GuildText,
+						parent: forgeCategory.id,
+					})
+				}
+
+				if (!statusChannel) {
+					throw new Error('Failed to create or find status channel')
+				}
+
+				this.statusChannelId = statusChannel.id
+			}
+
+			// Send the message to the status channel
+			if (this.statusChannelId) {
+				await this.sendMessage(this.statusChannelId, content)
+			} else {
+				throw new Error('Status channel ID is not set')
+			}
+		} catch (error) {
+			logger.error('Error logging status', { error })
+			// Fallback to console if status channel fails
+			logger.info('Status message:', { content })
+		}
 	}
 }

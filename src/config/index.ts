@@ -5,6 +5,7 @@ import { z } from 'zod'
 const DEFAULT_MODEL = 'openrouter/optimus-alpha'
 
 const mcpConfigSchema = z.object({
+	name: z.string(),
 	model: z.string().default(DEFAULT_MODEL),
 	clients: z.record(
 		z.string(),

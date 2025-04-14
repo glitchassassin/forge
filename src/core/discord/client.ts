@@ -9,6 +9,7 @@ import {
 	REST,
 	Routes,
 } from 'discord.js'
+import { config } from '../../config'
 import { availableModelsWithTools } from '../../config/available-models'
 import { type Event } from '../../types/events'
 import {
@@ -74,6 +75,18 @@ const COMMANDS = [
 			},
 		],
 	},
+	{
+		name: 'activate',
+		description: 'Activate a specific backend',
+		options: [
+			{
+				name: 'name',
+				description: 'The server instance to activate',
+				type: 3, // STRING
+				required: true,
+			},
+		],
+	},
 ]
 
 export class DiscordClient {
@@ -81,6 +94,7 @@ export class DiscordClient {
 	private rest: REST
 	private messageHandler?: (event: Event) => void
 	private token: string
+	private isActive: boolean = true
 
 	constructor(token: string) {
 		this.token = token
@@ -111,6 +125,27 @@ export class DiscordClient {
 		})
 
 		this.client.on('interactionCreate', async (interaction) => {
+			// Handle activate command regardless of active state
+			if (
+				interaction.isChatInputCommand() &&
+				interaction.commandName === 'activate'
+			) {
+				const name = interaction.options.getString('name', true)
+				this.isActive = name === config.name
+				await interaction.reply({
+					content: this.isActive
+						? `Bot "${config.name}" activated.`
+						: `Bot "${config.name}" deactivated.`,
+					flags: MessageFlags.Ephemeral,
+				})
+				return
+			}
+
+			// Ignore other commands if inactive
+			if (!this.isActive) {
+				return
+			}
+
 			if (interaction.isAutocomplete()) {
 				if (interaction.commandName === 'model') {
 					const focusedValue = interaction.options.getFocused()
@@ -252,8 +287,12 @@ export class DiscordClient {
 		})
 
 		this.client.on('messageCreate', async (message) => {
-			// Ignore bot messages and non-monitored channels
-			if (message.author.bot || !(await channelExists(message.channelId)))
+			// Ignore bot messages, non-monitored channels, and if inactive
+			if (
+				message.author.bot ||
+				!(await channelExists(message.channelId)) ||
+				!this.isActive
+			)
 				return
 
 			try {

@@ -1,3 +1,4 @@
+name: desktop
 clients:
   github:
     type: stdio

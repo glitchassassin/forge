@@ -1,6 +1,6 @@
 import { streamText } from 'ai'
 import { config } from '../config'
-import { addMessageToContext, getChannelContext, db } from '../core/database'
+import { addMessageToContext, db, getChannelContext } from '../core/database'
 import { type DiscordClient } from '../core/discord/client'
 import { logger } from '../core/logger'
 import { openrouter } from '../llm/models'
@@ -158,7 +158,7 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 			}
 
 			const warnings = await stream.warnings
-			if (warnings) {
+			if (warnings?.length) {
 				logger.warn('Stream warnings', { warnings })
 			}
 		} catch (error) {

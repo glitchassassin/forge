@@ -55,58 +55,6 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 			for await (const chunk of stream.fullStream) {
 				if (chunk.type === 'text-delta') {
 					currentMessage += chunk.textDelta
-
-					// Split on double newlines to send paragraphs
-					const paragraphs = currentMessage.split('\n\n')
-
-					// If we have more than one paragraph, send all but the last one
-					if (paragraphs.length > 1) {
-						for (let i = 0; i < paragraphs.length - 1; i++) {
-							const paragraph = paragraphs[i]?.trim()
-							if (paragraph) {
-								// Use message segmentation for each paragraph
-								const segments = segmentMessage(paragraph)
-								for (const segment of segments) {
-									await discordClient.sendMessage(event.channel, segment)
-								}
-							}
-						}
-						// Keep the last (potentially incomplete) paragraph
-						currentMessage = paragraphs[paragraphs.length - 1] ?? ''
-					}
-				} else if (chunk.type === 'error') {
-					logger.error('Stream interrupted with error', { error: chunk.error })
-
-					// Handle specific error types
-					const error = chunk.error as StreamError
-					if (error.name === 'AI_TypeValidationError') {
-						await discordClient.sendMessage(
-							event.channel,
-							"I'm having trouble processing the response from the AI service. This might be due to an API issue. Please try again in a moment.",
-						)
-					} else if (error.name === 'AI_ProviderError') {
-						await discordClient.sendMessage(
-							event.channel,
-							'The AI service is currently experiencing issues. Please try again later.',
-						)
-					} else {
-						await discordClient.sendMessage(
-							event.channel,
-							'An unexpected error occurred while processing your request. Please try again.',
-						)
-					}
-
-					// Log detailed error information for debugging
-					logger.error('Detailed error information', {
-						error: chunk.error,
-						channel: event.channel,
-						eventType: event.type,
-						messageCount: event.messages.length,
-						lastMessage: event.messages[event.messages.length - 1]?.content,
-						contextLength: allMessages.length,
-					})
-
-					return
 				} else {
 					// If we have any pending text, send it first
 					if (currentMessage.trim()) {
@@ -116,13 +64,50 @@ export const createEventHandler = (discordClient: DiscordClient) => {
 						}
 						currentMessage = ''
 					}
+
+					if (chunk.type === 'error') {
+						logger.error('Stream interrupted with error', {
+							error: chunk.error,
+						})
+
+						// Handle specific error types
+						const error = chunk.error as StreamError
+						if (error.name === 'AI_TypeValidationError') {
+							await discordClient.sendMessage(
+								event.channel,
+								"I'm having trouble processing the response from the AI service. This might be due to an API issue. Please try again in a moment.",
+							)
+						} else if (error.name === 'AI_ProviderError') {
+							await discordClient.sendMessage(
+								event.channel,
+								'The AI service is currently experiencing issues. Please try again later.',
+							)
+						} else {
+							await discordClient.sendMessage(
+								event.channel,
+								'An unexpected error occurred while processing your request. Please try again.',
+							)
+						}
+
+						// Log detailed error information for debugging
+						logger.error('Detailed error information', {
+							error: chunk.error,
+							channel: event.channel,
+							eventType: event.type,
+							messageCount: event.messages.length,
+							lastMessage: event.messages[event.messages.length - 1]?.content,
+							contextLength: allMessages.length,
+						})
+
+						return
+					}
 				}
 
 				// Restart typing indicator after sending a message
 				await discordClient.startTyping(event.channel)
 			}
 
-			// Send any remaining text
+			// Send any remaining text after stream ends
 			if (currentMessage.trim()) {
 				const segments = segmentMessage(currentMessage.trim())
 				for (const segment of segments) {

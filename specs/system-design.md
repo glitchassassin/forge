@@ -1,58 +1,133 @@
-# Discord Agent
+# Forge Framework
 
-The Discord Agent will be my personal assistant. I'll give it access to certain tools via Model Context Protocol (MCP) so it can help me with my work and life admin. It will also serve as a platform for experimentation with agentic AI systems.
+Forge will be my personal assistant. I'll give it access to certain tools via
+Model Context Protocol (MCP) so it can help me with my work and life admin. It
+will also serve as a platform for experimentation with agentic AI systems.
 
 ## Technology
 
-We'll use these tools: 
+We'll use these tools:
 
-- Typescript, ESLint, Prettier with [@epic-web/config](https://github.com/epicweb-dev/config) for type-checking and formatting
+- Typescript, ESLint, Prettier with
+  [@epic-web/config](https://github.com/epicweb-dev/config) for type-checking
+  and formatting
 - Vitest for unit tests
 - [discord.js](https://discord.js.org/) for Discord interactivity
-- The [Vercel AI SDK](https://sdk.vercel.ai/docs/foundations/overview) for LLM interaction
+- The [Vercel AI SDK](https://sdk.vercel.ai/docs/foundations/overview) for LLM
+  interaction
 - [OpenRouter](https://openrouter.ai/) as the model provider
 - Docker for packaging & deployment on a local server
 
 ## Architecture
 
-The Agent will run in a Docker container, with credentials for Docker, OpenRouter, etc. provided via environment variables. It uses a local SQLite database (mounted with a volume) for persistence.
+The central "hub" will be an event queue system, persisted to a sqlite db.
 
-The Agent listens for triggering events (which may include incoming messages, scheduled reminders, etc.) and uses the event and recent conversation context to prompt the model. The model can invoke tools (including MCP tools) to fetch data or carry out commands. These tool calls are displayed in Discord, and may require user authorization via a Discord button. The model's streaming text is sent to the chat as one or more messages, split by paragraphs or tool calls.
+Handlers register with the event queue at runtime. If a message is pushed to the
+queue, but its type has no handler, an error is logged.
 
-## Limitations
+Events are stored to the database, along with their status. Once a message has
+been processed, it is marked done. When the system restarts, un-processed
+messages are loaded from the database and added to the queue.
 
-This implementation is designed to work with a single Discord server. The Discord token will be provided to the Docker container via environment variable. This implementation will not provide any authentication or authorization mechanisms for users.
+Debating how flexible we need to be here... the major components:
 
-## Details
+1. Interfaces: send/receive messages with Discord, send/receive authorization
+   with Discord (or another tool)
+2. LLM: receive messages, create new ones to call tools or send/receive messages
+3. Tools: receive messages, do a thing, create a new message with the result
 
-### Event Queue
+Actually interfaces can just be another tool - so that simplifies things a bit:
 
-Messages (including messages from Discord, scheduled reminders, or triggers from external systems) are added to a queue. These are processed serially - the handler takes a message from the queue, and once the model handler finishes running (including tool calls), the next message is processed.
+1. LLM: receive messages, create new ones to call tools or send/receive messages
+2. Tools: receive messages, do a thing, create a new message with the result (or
+   create a new message spontaneously, for Discord message, scheduled timer,
+   etc.)
 
-The event message format will look like this:
+Human-in-the-loop requests are handled with a wrapper that receives a tool
+request; creates a new "request_approval" message; and listens for a matching
+"approve_tool" message. When the tool is approved,
+
+## Message Types
 
 ```ts
-type EventMessage = {
-    type: "discord" | "scheduled",
-    channel: string,
-    messages: Array<CoreSystemMessage | CoreUserMessage | CoreAssistantMessage | CoreToolMessage>,
+type BaseMessage = {
+	conversation: string
+	created_at: Date
+}
+
+type AgentMessage = {
+	type: 'agent'
+	body: string
+}
+
+type ToolCallMessage<NAME, ARGS> = {
+	type: 'tool-call'
+	body: ToolCall<NAME, ARGS>
+}
+
+type ToolResultMessage<NAME, ARGS, RESULT> = {
+	type: 'tool-result'
+	body: ToolResult<NAME, ARGS, RESULT>
+}
+
+type ApprovalRequestMessage = {
+	type: 'approval-request'
+	body: ToolCall<NAME, ARGS>
+}
+
+type ApprovalResponseMessage = {
+	type: 'approval-response'
+	body: {
+		toolCallId: string
+		approved: boolean
+		reason?: string
+	}
 }
 ```
 
-#### Discord Events
+We provide tools (wrapped to remove the `execute` function) to the LLM. The
+generated tool calls are output. These are converted to ToolCallMessages and
+pushed to the queue.
 
-We'll use a slash command `/monitor` to add a channel to listen to. When a message comes in on a monitored channel, or when the agent is specifically tagged, that message and the previous context (100 messages or 1 hour, whichever is smaller) are added to an event and sent to the queue. The user's messages in the Discord history are created as CoreUserMessages, and the Agent's are CoreAssistantMessages.
+The Tool Call Handler looks up the tool, and if it does not require approval, it
+simply executes the tool. If it does require approval, it sends an
+ApprovalRequestMessage. If it receives an ApprovalResponseMessage for a tool
+call that hasn't been run yet, it runs it.
 
-#### Scheduled Events
+The Approver formats the tool call and sends the request to the user. When the
+user approves (or rejects), the Approver sends the ApprovalResponseMessage.
 
-We'll use a custom `schedule` tool that accepts a cron or date/time and a text prompt. This will be stored in SQLite. An interval will run every minute to check for matching scheduled events and, if one is found, push the event to the event queue.
+Now, let's think about the "conversation" context... will this always be in one
+Discord channel? That would be one way to structure it.
 
-### Event Handler
+There could be multiple users in the conversation, too (not currently, but maybe
+down the road). Perhaps the tools have user-specific data. That's easy enough to
+add down the road.
 
-The event handler takes a message from the queue, which may include past conversational context, and compiles this into a set of messages for the LLM's streamText function. As the text streams, paragraphs are split up and sent as separate messages to the appropriate Discord channel (based on the channel in the event message).
+Keeping conversation context to a given channel is probably correct here.
 
-### Tool Calls
+The Discord tool sends messages for each channel (except ones originating from
+the bot user) to the event queue. It also listens for tool calls for Discord and
+sends the messages to the correct channel (based on the conversation context).
 
-The AI SDK's createMCPClient function creates tools for the connected MCP servers: https://sdk.vercel.ai/cookbook/node/mcp-tools
+---
 
-We'll need a "withConfirmation" function that can wrap an object of tools. This will run in the context of the event handler, so that when one of the wrapped tools is invoked, a message will be fired off to Discord that describes the intended action and displays "Cancel" and "Approve" buttons. If the user approves the action, the tool call continues; otherwise, it fails, and the rest of the event handler should be aborted.
+Now - what if this is, itself, a micro-agent framework?
+
+The tools themselves are somewhat abstracted, wrapped with a handler. We need to
+provide specific interfaces for the approval and persistence mechanisms. How
+those are implemented is fairly flexible.
+
+We don't necessarily even _need_ to match the AI SDK format. It can be flexible.
+
+Let's start with pulling it into its own directory and depending how that goes
+we can publish it separately.
+
+What are we keeping?
+
+- config (might look different)
+  - per-agent configs?
+- much of the discord client is reusable
+- test setup
+- mcp loader (maybe?)
+- message segmentation logic will go in the Discord handler

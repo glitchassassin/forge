@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -12,9 +11,9 @@ import {
 } from 'discord.js'
 import { type MessageQueue } from '../agent-framework/queue'
 import {
-	type ApprovalResponseMessage,
-	type AgentMessage,
-	type Message,
+	type CreateApprovalResponseMessage,
+	type CreateAgentMessage,
+	type CreateMessage,
 } from '../agent-framework/types'
 import { config } from '../config'
 import { logger } from '../core/logger'
@@ -94,7 +93,7 @@ export class DiscordClient {
 	 */
 	public emitter = new TypedEventEmitter<{
 		toolCallConfirmation: [toolCallId: string, approved: boolean]
-		message: [message: Message]
+		message: [message: CreateMessage]
 	}>()
 	private token: string
 	private isActive: boolean = true
@@ -218,10 +217,7 @@ export class DiscordClient {
 
 			try {
 				// Create an event with the message history
-				const event: AgentMessage = {
-					id: randomUUID(),
-					created_at: new Date(),
-					handled: false,
+				const event: CreateAgentMessage = {
 					type: 'agent',
 					conversation: message.channelId,
 					body: [
@@ -428,8 +424,7 @@ export class DiscordClient {
 				return
 			}
 			// create a new approval response message
-			const message: ApprovalResponseMessage<string, unknown> = {
-				id: toolCallId,
+			const message: CreateApprovalResponseMessage<string, unknown> = {
 				type: 'approval-response',
 				body: {
 					toolCall: toolCall.body.toolCall,
@@ -437,8 +432,6 @@ export class DiscordClient {
 					approved,
 				},
 				conversation: toolCall.conversation,
-				created_at: toolCall.created_at,
-				handled: false,
 			}
 			await queue.send(message)
 		})

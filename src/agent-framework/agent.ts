@@ -1,8 +1,7 @@
-import { randomUUID } from 'node:crypto'
 import { generateText, type ToolSet, type LanguageModelV1 } from 'ai'
 import { logger } from '../core/logger'
 import { type MessageQueue } from './queue'
-import { type AgentMessage, type ToolCallMessage } from './types'
+import { type CreateToolCallMessage, type AgentMessage } from './types'
 
 export class Agent {
 	private model: LanguageModelV1
@@ -35,13 +34,10 @@ export class Agent {
 					type: 'tool-call',
 					body: {
 						toolCall,
-						messages: message.body,
+						messages: response.response.messages,
 					},
-					id: randomUUID(),
 					conversation: message.conversation,
-					created_at: new Date(),
-					handled: false,
-				}) satisfies ToolCallMessage<any, any>,
+				}) satisfies CreateToolCallMessage<any, any>,
 		)) {
 			await this.queue?.send(toolCall)
 		}

@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { logger } from '../core/logger'
 import { type Persistence } from './persistence'
-import { type Message } from './types'
+import { type CreateMessage, type Message } from './types'
 
 export class MessageQueue {
 	private listeners: {
@@ -37,10 +38,16 @@ export class MessageQueue {
 			})
 	}
 
-	async send(message: Message) {
+	async send(message: CreateMessage) {
 		logger.debug('Sending message', { m: JSON.stringify({ message }) })
-		await this.persistence.addMessage(message)
-		this.queueMessage(message)
+		const m = {
+			...message,
+			id: randomUUID(),
+			handled: false,
+			created_at: new Date(),
+		}
+		await this.persistence.addMessage(m)
+		this.queueMessage(m)
 	}
 
 	on<T extends Message['type']>(

@@ -1,4 +1,4 @@
-import  { type CoreMessage, type ToolCall } from 'ai'
+import { type CoreMessage, type ToolCall } from 'ai'
 
 type BaseMessage = {
 	id: string
@@ -12,6 +12,11 @@ export type AgentMessage = {
 	body: CoreMessage[]
 } & BaseMessage
 
+export type CreateAgentMessage = Omit<
+	AgentMessage,
+	'id' | 'handled' | 'created_at'
+>
+
 export type ToolCallMessage<NAME extends string, ARGS> = {
 	type: 'tool-call'
 	body: {
@@ -19,6 +24,11 @@ export type ToolCallMessage<NAME extends string, ARGS> = {
 		messages: CoreMessage[]
 	}
 } & BaseMessage
+
+export type CreateToolCallMessage<NAME extends string, ARGS> = Omit<
+	ToolCallMessage<NAME, ARGS>,
+	'id' | 'handled' | 'created_at'
+>
 
 export type ApprovalResponseMessage<NAME extends string, ARGS> = {
 	type: 'approval-response'
@@ -30,7 +40,17 @@ export type ApprovalResponseMessage<NAME extends string, ARGS> = {
 	}
 } & BaseMessage
 
+export type CreateApprovalResponseMessage<NAME extends string, ARGS> = Omit<
+	ApprovalResponseMessage<NAME, ARGS>,
+	'id' | 'handled' | 'created_at'
+>
+
 export type Message =
 	| AgentMessage
 	| ToolCallMessage<string, any>
 	| ApprovalResponseMessage<string, any>
+
+export type CreateMessage =
+	| CreateAgentMessage
+	| CreateToolCallMessage<string, any>
+	| CreateApprovalResponseMessage<string, any>

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import { type Tool, type ToolSet } from 'ai'
 import { logger } from '../core/logger'
 import { type MessageQueue } from './queue'
@@ -8,20 +7,24 @@ import { type ApprovalResponseMessage, type ToolCallMessage } from './types'
 export class Runner {
 	private queue?: MessageQueue
 	private _tools: ToolSetWithConversation
+	private approvedTools: Set<string>
 	private requestApproval: (
 		toolCall: ToolCallMessage<string, unknown>,
 	) => Promise<'approved' | 'rejected' | 'pending'>
 	constructor({
 		tools,
+		approvedTools,
 		requestApproval,
 	}: {
 		tools: ToolSetWithConversation
+		approvedTools?: string[]
 		requestApproval: (
 			toolCall: ToolCallMessage<string, unknown>,
 		) => Promise<'approved' | 'rejected' | 'pending'>
 	}) {
 		this.requestApproval = requestApproval
 		this._tools = tools
+		this.approvedTools = new Set(approvedTools)
 	}
 
 	get tools() {
@@ -43,6 +46,18 @@ export class Runner {
 	 */
 	async handleToolCall(toolCall: ToolCallMessage<any, any>) {
 		logger.debug('Handling tool call', { toolCall })
+		if (this.approvedTools.has(toolCall.body.toolCall.toolName)) {
+			await this.queue?.send({
+				type: 'approval-response',
+				body: {
+					toolCall: toolCall.body.toolCall,
+					messages: toolCall.body.messages,
+					approved: true,
+				},
+				conversation: toolCall.conversation,
+			})
+			return
+		}
 		const result = await this.requestApproval(toolCall)
 		if (result !== 'pending') {
 			await this.queue?.send({
@@ -52,10 +67,7 @@ export class Runner {
 					messages: toolCall.body.messages,
 					approved: result === 'approved',
 				},
-				id: randomUUID(),
 				conversation: toolCall.conversation,
-				created_at: new Date(),
-				handled: false,
 			})
 		}
 	}
@@ -66,26 +78,11 @@ export class Runner {
 	async handleApprovalResponse(
 		approvalResponse: ApprovalResponseMessage<string, unknown>,
 	) {
-		logger.debug('Handling approval response', { approvalResponse })
-		// TODO: Add error handling
-		const tools = this._tools
-			? resolveToolset(this._tools, approvalResponse.conversation)
-			: undefined
-		const tool = tools?.[approvalResponse.body.toolCall.toolName]
-		if (!tool) {
-			throw new Error(
-				`Tool ${approvalResponse.body.toolCall.toolName} not found`,
-			)
-		}
-		const result = await tool.execute?.(approvalResponse.body.toolCall.args, {
-			toolCallId: approvalResponse.id,
-			messages: approvalResponse.body.messages,
-		})
-
-		if (result) {
+		if (!approvalResponse.body.approved) {
 			await this.queue?.send({
 				type: 'agent',
 				body: [
+					...approvalResponse.body.messages,
 					{
 						role: 'tool',
 						content: [
@@ -93,15 +90,78 @@ export class Runner {
 								toolCallId: approvalResponse.body.toolCall.toolCallId,
 								toolName: approvalResponse.body.toolCall.toolName,
 								type: 'tool-result',
-								result,
+								result: {
+									isError: true,
+									error: 'Tool call rejected by the user',
+								},
 							},
 						],
 					},
 				],
-				id: randomUUID(),
 				conversation: approvalResponse.conversation,
-				created_at: new Date(),
-				handled: false,
+			})
+			return
+		}
+		try {
+			const tools = this._tools
+				? resolveToolset(this._tools, approvalResponse.conversation)
+				: undefined
+			const tool = tools?.[approvalResponse.body.toolCall.toolName]
+			if (!tool) {
+				throw new Error(
+					`Tool ${approvalResponse.body.toolCall.toolName} not found`,
+				)
+			}
+			const result = await tool.execute?.(approvalResponse.body.toolCall.args, {
+				toolCallId: approvalResponse.id,
+				messages: approvalResponse.body.messages,
+			})
+
+			if (result) {
+				await this.queue?.send({
+					type: 'agent',
+					body: [
+						...approvalResponse.body.messages,
+						{
+							role: 'tool',
+							content: [
+								{
+									toolCallId: approvalResponse.body.toolCall.toolCallId,
+									toolName: approvalResponse.body.toolCall.toolName,
+									type: 'tool-result',
+									result,
+								},
+							],
+						},
+					],
+					conversation: approvalResponse.conversation,
+				})
+			}
+		} catch (error) {
+			logger.error('Error executing tool', { error })
+			await this.queue?.send({
+				type: 'agent',
+				body: [
+					...approvalResponse.body.messages,
+					{
+						role: 'tool',
+						content: [
+							{
+								toolCallId: approvalResponse.body.toolCall.toolCallId,
+								toolName: approvalResponse.body.toolCall.toolName,
+								type: 'tool-result',
+								result: {
+									isError: true,
+									error:
+										error instanceof Error
+											? error.message
+											: 'Unknown error occurred',
+								},
+							},
+						],
+					},
+				],
+				conversation: approvalResponse.conversation,
 			})
 		}
 	}

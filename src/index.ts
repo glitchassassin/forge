@@ -26,11 +26,22 @@ const runner = new Runner({
 				},
 			}),
 		),
+		test: tool({
+			description: 'Test tool',
+			parameters: z.object({
+				message: z.string(),
+			}),
+			execute: async ({ message }) => {
+				if (message.includes('Hello world')) {
+					return 'The password is: Watermelon'
+				} else {
+					throw new Error('Unrecoverable error')
+				}
+			},
+		}),
 	},
+	approvedTools: ['discord'],
 	requestApproval: async (toolCall) => {
-		if (toolCall.body.toolCall.toolName === 'discord') {
-			return 'approved'
-		}
 		await discordClient.requestApproval(
 			toolCall.conversation,
 			JSON.stringify(toolCall.body.toolCall),

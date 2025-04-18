@@ -1,30 +1,64 @@
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import 'dotenv/config'
-import { config } from './config'
-import { DiscordClient } from './core/discord/client'
-import { EventQueue } from './core/event-queue'
+import { Agent } from './agent-framework/agent'
+import { Approver } from './agent-framework/approver'
+import { InMemoryPersistence } from './agent-framework/persistence/in-memory'
+import { MessageQueue } from './agent-framework/queue'
+import { Runner } from './agent-framework/runner'
+import { ApprovalResponseMessage } from './agent-framework/types'
 import { logger } from './core/logger'
-import { createEventHandler } from './handlers/event-handler'
-import { checkAndPublishScheduledEvents } from './tools/schedule'
+import { DiscordClient } from './discord/client'
 
-if (!process.env.DISCORD_TOKEN) {
-	logger.error('DISCORD_TOKEN is not set in .env file')
-	process.exit(1)
+const discordClient = new DiscordClient()
+
+const persistence = new InMemoryPersistence()
+const queue = new MessageQueue({ persistence })
+
+discordClient.emitter.on('message', (message) => {
+	queue.send(message)
+})
+const approver: Approver = {
+	requestApproval: (toolCall) =>
+		discordClient.requestApproval(
+			toolCall.conversation,
+			JSON.stringify(toolCall.body.toolCall),
+			toolCall.body.toolCall.toolCallId,
+		),
+	onApprovalResponse: (handler) => {
+		discordClient.emitter.on(
+			'toolCallConfirmation',
+			async (toolCallId, approved) => {
+				// fetch the original tool call from the ID in the event
+				const toolCall = await persistence.getToolCall(toolCallId)
+				if (!toolCall) {
+					logger.error(`Tool call ${toolCallId} not found`)
+					return
+				}
+				// create a new approval response message
+				const message: ApprovalResponseMessage<string, unknown> = {
+					id: toolCallId,
+					type: 'approval-response',
+					body: {
+						toolCall: toolCall.body.toolCall,
+						messages: toolCall.body.messages,
+						approved,
+					},
+					conversation: toolCall.conversation,
+					created_at: toolCall.created_at,
+					handled: false,
+				}
+				handler(message)
+			},
+		)
+	},
 }
 
-const discordClient = new DiscordClient(process.env.DISCORD_TOKEN)
-const handleEvent = createEventHandler(discordClient)
-const eventQueue = new EventQueue(handleEvent)
-
-// Wire up the Discord client to the event queue
-discordClient.onMessage((event) => eventQueue.add(event))
-
-// Check for scheduled events every minute
-setInterval(() => checkAndPublishScheduledEvents(eventQueue), 60 * 1000)
-
-discordClient.start().catch((error) => {
-	logger.error('Failed to start Discord client', { error })
-	process.exit(1)
+export const openrouter = createOpenRouter({
+	apiKey: process.env.OPENROUTER_API_KEY,
 })
+const agent = new Agent({
+	model: openrouter('openai/gpt-4.1-mini'),
+})
+const runner = new Runner({ agent, approver })
 
-logger.info('Bot is running')
-discordClient.logStatus(`Bot "${config.name}" is running`)
+runner.register(queue)

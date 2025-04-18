@@ -44,7 +44,6 @@ describe('message-segmentation', () => {
 
 		it('should handle code blocks under the limit', () => {
 			const message = 'Here is some code:\n```typescript\nconst x = 1;\n```'
-			console.log({ segmentMessage: segmentMessage(message) }, { message })
 			expect(segmentMessage(message)).toEqual([message])
 		})
 

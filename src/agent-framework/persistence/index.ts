@@ -1,4 +1,4 @@
-import { Message, ToolCallMessage } from '../types'
+import { type Message, type ToolCallMessage } from '../types'
 
 export abstract class Persistence {
 	abstract getMessages(): Promise<Message[]>

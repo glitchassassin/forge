@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { Message, ToolCallMessage } from '../../types'
+import { type Message, type ToolCallMessage } from '../../types'
 import { InMemoryPersistence } from '../in-memory'
 
 describe('InMemoryPersistence', () => {

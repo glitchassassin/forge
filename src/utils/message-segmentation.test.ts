@@ -72,7 +72,7 @@ describe('message-segmentation', () => {
 		it('should handle unclosed code blocks', () => {
 			const message = '```typescript\nconst x = 1;'
 			const segments = segmentMessage(message)
-			expect(segments.length).toBe(1)
+			expect(segments).toHaveLength(1)
 			expect(segments[0]).toBe(message)
 		})
 

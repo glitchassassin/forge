@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
@@ -9,8 +10,7 @@ import {
 	REST,
 	Routes,
 } from 'discord.js'
-import { randomUUID } from 'node:crypto'
-import { AgentMessage, Message } from '../agent-framework/types'
+import { type AgentMessage, type Message } from '../agent-framework/types'
 import { config } from '../config'
 import { logger } from '../core/logger'
 import { triggerUpdate } from '../utils/process'

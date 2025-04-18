@@ -1,4 +1,4 @@
-import type { CoreMessage, ToolCall } from 'ai'
+import  { type CoreMessage, type ToolCall } from 'ai'
 
 type BaseMessage = {
 	id: string

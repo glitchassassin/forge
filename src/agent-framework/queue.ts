@@ -1,5 +1,6 @@
-import { Persistence } from './persistence'
-import { Message } from './types'
+import { logger } from '../core/logger'
+import { type Persistence } from './persistence'
+import { type Message } from './types'
 
 export class MessageQueue {
 	private listeners: {
@@ -16,18 +17,30 @@ export class MessageQueue {
 	private persistence: Persistence
 	constructor({ persistence }: { persistence: Persistence }) {
 		this.persistence = persistence
-
-		this.persistence.getMessages().then((messages) => {
-			for (const message of messages) {
-				this.nextAction = this.nextAction.then(() =>
-					this.processMessage(message),
-				)
-			}
-		})
 	}
 
-	send(message: Message) {
-		this.persistence.addMessage(message)
+	async start() {
+		const messages = await this.persistence.getMessages()
+		for (const message of messages) {
+			this.queueMessage(message)
+		}
+	}
+
+	private queueMessage(message: Message) {
+		logger.debug('Queueing message', { m: JSON.stringify({ message }) })
+		this.nextAction = this.nextAction
+			.then(() => this.processMessage(message))
+			.catch((error) => {
+				logger.error('Error handling event:', error)
+				// Continue processing next event even if current one failed
+				return Promise.resolve()
+			})
+	}
+
+	async send(message: Message) {
+		logger.debug('Sending message', { m: JSON.stringify({ message }) })
+		await this.persistence.addMessage(message)
+		this.queueMessage(message)
 	}
 
 	on<T extends Message['type']>(

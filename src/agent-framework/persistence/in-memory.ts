@@ -1,4 +1,4 @@
-import { Message, ToolCallMessage } from '../types'
+import { type Message, type ToolCallMessage } from '../types'
 import { Persistence } from './index'
 
 export class InMemoryPersistence extends Persistence {

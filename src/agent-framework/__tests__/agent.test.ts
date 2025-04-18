@@ -1,8 +1,7 @@
-import type { LanguageModelV1, Tool, ToolSet } from 'ai'
-import { generateText } from 'ai'
+import  { type LanguageModelV1, type Tool, type ToolSet, generateText  } from 'ai'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Agent } from '../agent'
-import { AgentMessage } from '../types'
+import { type AgentMessage } from '../types'
 
 vi.mock('ai', () => ({
 	generateText: vi.fn(),

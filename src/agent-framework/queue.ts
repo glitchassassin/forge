@@ -14,7 +14,7 @@ export class MessageQueue {
 	}
 
 	private nextAction: Promise<void> = Promise.resolve()
-	private persistence: Persistence
+	public persistence: Persistence
 	constructor({ persistence }: { persistence: Persistence }) {
 		this.persistence = persistence
 	}

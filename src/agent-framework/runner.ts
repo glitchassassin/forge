@@ -1,50 +1,40 @@
 import { randomUUID } from 'node:crypto'
+import { type Tool, type ToolSet } from 'ai'
 import { logger } from '../core/logger'
-import { type Agent } from './agent'
 import { type MessageQueue } from './queue'
-import { resolveToolset } from './tools'
-import {
-	type AgentMessage,
-	type ApprovalResponseMessage,
-	type ToolCallMessage,
-} from './types'
+import { resolveToolset, type ToolSetWithConversation } from './tools'
+import { type ApprovalResponseMessage, type ToolCallMessage } from './types'
 
 export class Runner {
 	private queue?: MessageQueue
-	private agent: Agent
+	private _tools: ToolSetWithConversation
 	private requestApproval: (
 		toolCall: ToolCallMessage<string, unknown>,
 	) => Promise<'approved' | 'rejected' | 'pending'>
 	constructor({
-		agent,
+		tools,
 		requestApproval,
 	}: {
-		agent: Agent
+		tools: ToolSetWithConversation
 		requestApproval: (
 			toolCall: ToolCallMessage<string, unknown>,
 		) => Promise<'approved' | 'rejected' | 'pending'>
 	}) {
-		this.agent = agent
 		this.requestApproval = requestApproval
+		this._tools = tools
+	}
+
+	get tools() {
+		return toolStubs(resolveToolset(this._tools, ''))
 	}
 
 	register(queue: MessageQueue) {
 		this.queue = queue
 
-		queue.on('agent', (message) => this.handleAgentMessage(message))
 		queue.on('approval-response', (message) =>
 			this.handleApprovalResponse(message),
 		)
 		queue.on('tool-call', (message) => this.handleToolCall(message))
-	}
-
-	async handleAgentMessage(message: AgentMessage) {
-		logger.debug('Handling agent message', { message })
-		const toolCalls = await this.agent.run(message)
-
-		for (const toolCall of toolCalls) {
-			await this.queue?.send(toolCall)
-		}
 	}
 
 	/**
@@ -78,8 +68,8 @@ export class Runner {
 	) {
 		logger.debug('Handling approval response', { approvalResponse })
 		// TODO: Add error handling
-		const tools = this.agent.tools
-			? resolveToolset(this.agent.tools, approvalResponse.conversation)
+		const tools = this._tools
+			? resolveToolset(this._tools, approvalResponse.conversation)
 			: undefined
 		const tool = tools?.[approvalResponse.body.toolCall.toolName]
 		if (!tool) {
@@ -115,4 +105,18 @@ export class Runner {
 			})
 		}
 	}
+}
+
+/**
+ * Returns a stub of a tool that can be used to create a ToolCall without executing it
+ */
+function toolStub(tool: Tool) {
+	const { execute, ...rest } = tool
+	return rest
+}
+
+function toolStubs(tools: ToolSet) {
+	return Object.fromEntries(
+		Object.entries(tools).map(([key, tool]) => [key, toolStub(tool)]),
+	)
 }

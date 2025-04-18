@@ -1,37 +1,35 @@
 import { randomUUID } from 'node:crypto'
-import { generateText, type ToolSet, type LanguageModelV1, type Tool } from 'ai'
+import { generateText, type ToolSet, type LanguageModelV1 } from 'ai'
 import { logger } from '../core/logger'
-import { resolveToolset, type ToolSetWithConversation } from './tools'
+import { type MessageQueue } from './queue'
 import { type AgentMessage, type ToolCallMessage } from './types'
 
 export class Agent {
 	private model: LanguageModelV1
-	public tools?: ToolSetWithConversation
-	constructor({
-		model,
-		tools,
-	}: {
-		model: LanguageModelV1
-		tools?: ToolSetWithConversation
-	}) {
+	public tools?: ToolSet
+	private queue?: MessageQueue
+	constructor({ model, tools }: { model: LanguageModelV1; tools?: ToolSet }) {
 		this.model = model
 		this.tools = tools
+	}
+
+	register(queue: MessageQueue) {
+		this.queue = queue
+		queue.on('agent', (message) => this.run(message))
 	}
 
 	async run(message: AgentMessage) {
 		const response = await generateText({
 			model: this.model,
 			messages: message.body,
-			tools: this.tools
-				? toolStubs(resolveToolset(this.tools, message.conversation))
-				: undefined,
+			tools: this.tools,
 			toolChoice: 'required',
 			maxSteps: 1,
 		})
 
 		logger.debug('Agent response', { response })
 
-		return response.toolCalls.map(
+		for (const toolCall of response.toolCalls.map(
 			(toolCall) =>
 				({
 					type: 'tool-call',
@@ -44,20 +42,8 @@ export class Agent {
 					created_at: new Date(),
 					handled: false,
 				}) satisfies ToolCallMessage<any, any>,
-		)
+		)) {
+			await this.queue?.send(toolCall)
+		}
 	}
-}
-
-/**
- * Returns a stub of a tool that can be used to create a ToolCall without executing it
- */
-function toolStub(tool: Tool) {
-	const { execute, ...rest } = tool
-	return rest
-}
-
-function toolStubs(tools: ToolSet) {
-	return Object.fromEntries(
-		Object.entries(tools).map(([key, tool]) => [key, toolStub(tool)]),
-	)
 }

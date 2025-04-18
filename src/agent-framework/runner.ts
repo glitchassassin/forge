@@ -82,7 +82,6 @@ export class Runner {
 			await this.queue?.send({
 				type: 'agent',
 				body: [
-					...approvalResponse.body.messages,
 					{
 						role: 'tool',
 						content: [
@@ -90,10 +89,8 @@ export class Runner {
 								toolCallId: approvalResponse.body.toolCall.toolCallId,
 								toolName: approvalResponse.body.toolCall.toolName,
 								type: 'tool-result',
-								result: {
-									isError: true,
-									error: 'Tool call rejected by the user',
-								},
+								isError: true,
+								result: 'Tool call rejected by the user',
 							},
 						],
 					},
@@ -117,32 +114,9 @@ export class Runner {
 				messages: approvalResponse.body.messages,
 			})
 
-			if (result) {
-				await this.queue?.send({
-					type: 'agent',
-					body: [
-						...approvalResponse.body.messages,
-						{
-							role: 'tool',
-							content: [
-								{
-									toolCallId: approvalResponse.body.toolCall.toolCallId,
-									toolName: approvalResponse.body.toolCall.toolName,
-									type: 'tool-result',
-									result,
-								},
-							],
-						},
-					],
-					conversation: approvalResponse.conversation,
-				})
-			}
-		} catch (error) {
-			logger.error('Error executing tool', { error })
 			await this.queue?.send({
 				type: 'agent',
 				body: [
-					...approvalResponse.body.messages,
 					{
 						role: 'tool',
 						content: [
@@ -150,13 +124,30 @@ export class Runner {
 								toolCallId: approvalResponse.body.toolCall.toolCallId,
 								toolName: approvalResponse.body.toolCall.toolName,
 								type: 'tool-result',
-								result: {
-									isError: true,
-									error:
-										error instanceof Error
-											? error.message
-											: 'Unknown error occurred',
-								},
+								result: result ?? '',
+							},
+						],
+					},
+				],
+				conversation: approvalResponse.conversation,
+			})
+		} catch (error) {
+			logger.error('Error executing tool', { error })
+			await this.queue?.send({
+				type: 'agent',
+				body: [
+					{
+						role: 'tool',
+						content: [
+							{
+								toolCallId: approvalResponse.body.toolCall.toolCallId,
+								toolName: approvalResponse.body.toolCall.toolName,
+								type: 'tool-result',
+								isError: true,
+								result:
+									error instanceof Error
+										? error.message
+										: 'Unknown error occurred',
 							},
 						],
 					},

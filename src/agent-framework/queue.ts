@@ -14,7 +14,7 @@ export class MessageQueue {
 		'tool-call': [],
 	}
 
-	private nextAction: Promise<void> = Promise.resolve()
+	private nextAction: Record<string, Promise<void>> = {}
 	public persistence: Persistence
 	constructor({ persistence }: { persistence: Persistence }) {
 		this.persistence = persistence
@@ -29,7 +29,9 @@ export class MessageQueue {
 
 	private queueMessage(message: Message) {
 		logger.debug('Queueing message', { m: JSON.stringify({ message }) })
-		this.nextAction = this.nextAction
+		this.nextAction[message.conversation] = (
+			this.nextAction[message.conversation] ?? Promise.resolve()
+		)
 			.then(() => this.processMessage(message))
 			.catch((error) => {
 				logger.error('Error handling event:', error)

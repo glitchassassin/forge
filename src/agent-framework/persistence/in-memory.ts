@@ -4,8 +4,12 @@ import { Persistence } from './index'
 export class InMemoryPersistence extends Persistence {
 	private messages: Message[] = []
 
-	async getMessages(): Promise<Message[]> {
-		return this.messages.filter((message) => !message.handled)
+	async getMessages(conversation?: string): Promise<Message[]> {
+		return this.messages.filter(
+			(message) =>
+				!message.handled &&
+				(!conversation || message.conversation === conversation),
+		)
 	}
 
 	async getAllMessages(): Promise<Message[]> {

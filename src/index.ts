@@ -44,7 +44,7 @@ const runner = new Runner({
 	requestApproval: async (toolCall) => {
 		await discordClient.requestApproval(
 			toolCall.conversation,
-			JSON.stringify(toolCall.body.toolCall),
+			`Calling tool \`${toolCall.body.toolCall.toolName}\`:\n\`\`\`json\n${JSON.stringify(toolCall.body.toolCall.args, null, 2)}\`\`\``,
 			toolCall.body.toolCall.toolCallId,
 		)
 		return 'pending'

@@ -6,8 +6,10 @@ import {
 	APICallError,
 	AISDKError,
 } from 'ai'
-import { type Persistence } from './persistence'
+import { ulid } from 'ulid'
 import { type MessageQueue } from './queue'
+import { type Repository } from './repository'
+import { InMemoryRepository } from './repository/in-memory'
 import { type CreateToolCallMessage, type AgentMessage } from './types'
 
 export class Agent {
@@ -15,20 +17,20 @@ export class Agent {
 	public tools?: ToolSet
 	private queue?: MessageQueue
 	private messages: Map<string, CoreMessage[]> = new Map()
-	private persistence: Persistence
+	private repository: Repository<CoreMessage>
 
 	constructor({
 		model,
 		tools,
-		persistence,
+		repository = new InMemoryRepository<CoreMessage>(),
 	}: {
 		model: LanguageModelV1
 		tools?: ToolSet
-		persistence: Persistence
+		repository: Repository<CoreMessage>
 	}) {
 		this.model = model
 		this.tools = tools
-		this.persistence = persistence
+		this.repository = repository
 	}
 
 	async initialize(conversation: string) {
@@ -37,8 +39,14 @@ export class Agent {
 		}
 
 		// Load the last 100 messages from persistence
-		const messages = await this.persistence.getCoreMessages(conversation, 100)
-		this.messages.set(conversation, messages)
+		const messages = await this.repository.read({
+			secondaryKey: conversation,
+			limit: 100,
+		})
+		this.messages.set(
+			conversation,
+			messages.map((m) => m.item),
+		)
 	}
 
 	register(queue: MessageQueue) {
@@ -50,7 +58,11 @@ export class Agent {
 		const messages = this.messages.get(conversation) || []
 		messages.push(message)
 		this.messages.set(conversation, messages)
-		await this.persistence.addCoreMessage(conversation, message)
+		await this.repository.create({
+			primaryKey: ulid(),
+			secondaryKey: conversation,
+			item: message,
+		})
 	}
 
 	async run(message: AgentMessage) {
@@ -73,7 +85,6 @@ export class Agent {
 
 		try {
 			const conversationMessages = this.messages.get(message.conversation) || []
-			console.log('[run]', conversationMessages)
 			const response = await generateText({
 				model: this.model,
 				messages: conversationMessages,

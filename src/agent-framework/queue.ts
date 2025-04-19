@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto'
-import { type Persistence } from './persistence'
+import { ulid } from 'ulid'
+import { type Repository } from './repository'
+import { InMemoryRepository } from './repository/in-memory'
 import { type CreateMessage, type Message } from './types'
 
 export class MessageQueue {
@@ -15,15 +16,20 @@ export class MessageQueue {
 	}
 
 	private nextAction: Record<string, Promise<void>> = {}
-	public persistence: Persistence
-	constructor({ persistence }: { persistence: Persistence }) {
-		this.persistence = persistence
+	public repository: Repository<Message>
+
+	constructor({
+		repository = new InMemoryRepository<Message>(),
+	}: {
+		repository: Repository<Message>
+	}) {
+		this.repository = repository
 	}
 
 	async start() {
-		const messages = await this.persistence.getMessages()
+		const messages = await this.repository.read({ secondaryKey: '' })
 		for (const message of messages) {
-			this.queueMessage(message)
+			this.queueMessage(message.item as Message)
 		}
 	}
 
@@ -33,6 +39,7 @@ export class MessageQueue {
 		)
 			.then(() => this.processMessage(message))
 			.catch((error) => {
+				console.error(error)
 				// Continue processing next event even if current one failed
 				return Promise.resolve()
 			})
@@ -41,11 +48,13 @@ export class MessageQueue {
 	async send(message: CreateMessage) {
 		const m = {
 			...message,
-			id: randomUUID(),
-			handled: false,
-			created_at: new Date(),
+			id: ulid(),
 		}
-		await this.persistence.addMessage(m)
+		await this.repository.create({
+			primaryKey: m.id,
+			secondaryKey: m.conversation,
+			item: m,
+		})
 		this.queueMessage(m)
 	}
 
@@ -62,6 +71,10 @@ export class MessageQueue {
 		for (const listener of this.listeners[message.type]) {
 			await listener(message)
 		}
-		await this.persistence.markAsHandled(message.id)
+		await this.repository.update({
+			primaryKey: message.id,
+			secondaryKey: message.conversation,
+			item: message,
+		})
 	}
 }

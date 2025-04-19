@@ -3,15 +3,16 @@ import 'dotenv/config'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { Agent } from './agent-framework/agent'
-import { SqlitePersistence } from './agent-framework/persistence/sqlite'
 import { MessageQueue } from './agent-framework/queue'
 import { Runner } from './agent-framework/runner'
 import { withConversation } from './agent-framework/tools'
 import { DiscordClient } from './discord/client'
+import { QueueRepository, AgentRepository } from './sqlite'
 
 const discordClient = new DiscordClient()
-const persistence = new SqlitePersistence()
-const queue = new MessageQueue({ persistence })
+const queueRepository = new QueueRepository()
+const agentRepository = new AgentRepository()
+const queue = new MessageQueue({ repository: queueRepository })
 
 const runner = new Runner({
 	tools: {
@@ -59,7 +60,7 @@ export const openrouter = createOpenRouter({
 const agent = new Agent({
 	model: openrouter('openai/gpt-4.1-mini'),
 	tools: runner.tools,
-	persistence,
+	repository: agentRepository,
 })
 
 agent.register(queue)

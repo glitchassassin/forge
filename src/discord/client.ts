@@ -418,8 +418,10 @@ export class DiscordClient {
 		this.emitter.on('toolCallConfirmation', async (toolCallId, approved) => {
 			logger.debug('Approval response', { toolCallId, approved })
 			// fetch the original tool call from the ID in the event
-			const toolCall = await queue.persistence.getToolCall(toolCallId)
-			if (!toolCall) {
+			const toolCall = await queue.repository.readById({
+				primaryKey: toolCallId,
+			})
+			if (!toolCall || toolCall.item.type !== 'tool-call') {
 				logger.error(`Tool call ${toolCallId} not found`)
 				return
 			}
@@ -427,11 +429,11 @@ export class DiscordClient {
 			const message: CreateApprovalResponseMessage<string, unknown> = {
 				type: 'approval-response',
 				body: {
-					toolCall: toolCall.body.toolCall,
-					messages: toolCall.body.messages,
+					toolCall: toolCall.item.body.toolCall,
+					messages: toolCall.item.body.messages,
 					approved,
 				},
-				conversation: toolCall.conversation,
+				conversation: toolCall.item.conversation,
 			}
 			await queue.send(message)
 		})

@@ -3,8 +3,6 @@ import { type CoreMessage, type ToolCall } from 'ai'
 type BaseMessage = {
 	id: string
 	conversation: string
-	created_at: Date
-	handled: boolean
 }
 
 export type ErrorMessage = {
@@ -12,20 +10,14 @@ export type ErrorMessage = {
 	body: string
 } & BaseMessage
 
-export type CreateErrorMessage = Omit<
-	ErrorMessage,
-	'id' | 'handled' | 'created_at'
->
+export type CreateErrorMessage = Omit<ErrorMessage, 'id'>
 
 export type AgentMessage = {
 	type: 'agent'
 	body: CoreMessage[]
 } & BaseMessage
 
-export type CreateAgentMessage = Omit<
-	AgentMessage,
-	'id' | 'handled' | 'created_at'
->
+export type CreateAgentMessage = Omit<AgentMessage, 'id'>
 
 export type ToolCallMessage<NAME extends string, ARGS> = {
 	type: 'tool-call'
@@ -37,7 +29,7 @@ export type ToolCallMessage<NAME extends string, ARGS> = {
 
 export type CreateToolCallMessage<NAME extends string, ARGS> = Omit<
 	ToolCallMessage<NAME, ARGS>,
-	'id' | 'handled' | 'created_at'
+	'id'
 >
 
 export type ApprovalResponseMessage<NAME extends string, ARGS> = {
@@ -52,7 +44,7 @@ export type ApprovalResponseMessage<NAME extends string, ARGS> = {
 
 export type CreateApprovalResponseMessage<NAME extends string, ARGS> = Omit<
 	ApprovalResponseMessage<NAME, ARGS>,
-	'id' | 'handled' | 'created_at'
+	'id'
 >
 
 export type Message =

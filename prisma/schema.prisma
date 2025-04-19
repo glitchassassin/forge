@@ -13,22 +13,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Message {
-  id          String   @id
-  type        String
-  conversation String
-  body        String
-  handled     Boolean  @default(false)
-  createdAt   DateTime @default(now()) @map("created_at")
+model Queue {
+  id           String   @id @default(uuid())
+  secondaryKey String   @map("secondary_key")
+  item         String
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  @@map("messages")
+  @@map("queues")
 }
 
-model Conversation {
-  id          String   @id @default(uuid())
-  channelId   String   @map("channel_id")
-  message     String
-  createdAt   DateTime @default(now()) @map("created_at")
+model Agent {
+  id           String   @id @default(uuid())
+  secondaryKey String   @map("secondary_key")
+  item         String
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  @@map("conversations")
+  @@map("agents")
 }

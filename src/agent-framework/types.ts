@@ -7,6 +7,16 @@ type BaseMessage = {
 	handled: boolean
 }
 
+export type ErrorMessage = {
+	type: 'error'
+	body: string
+} & BaseMessage
+
+export type CreateErrorMessage = Omit<
+	ErrorMessage,
+	'id' | 'handled' | 'created_at'
+>
+
 export type AgentMessage = {
 	type: 'agent'
 	body: CoreMessage[]
@@ -49,8 +59,10 @@ export type Message =
 	| AgentMessage
 	| ToolCallMessage<string, any>
 	| ApprovalResponseMessage<string, any>
+	| ErrorMessage
 
 export type CreateMessage =
 	| CreateAgentMessage
 	| CreateToolCallMessage<string, any>
 	| CreateApprovalResponseMessage<string, any>
+	| CreateErrorMessage

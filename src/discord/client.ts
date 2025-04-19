@@ -435,5 +435,12 @@ export class DiscordClient {
 			}
 			await queue.send(message)
 		})
+
+		queue.on('error', async (error) => {
+			await this.sendMessage(
+				error.conversation,
+				`Error:\n\`\`\`\n${error.body}\n\`\`\``,
+			)
+		})
 	}
 }

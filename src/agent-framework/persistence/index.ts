@@ -1,3 +1,4 @@
+import { type CoreMessage } from 'ai'
 import { type Message, type ToolCallMessage } from '../types'
 
 export abstract class Persistence {
@@ -7,4 +8,13 @@ export abstract class Persistence {
 	abstract getToolCall(
 		id: string,
 	): Promise<ToolCallMessage<string, unknown> | undefined>
+
+	abstract addCoreMessage(
+		conversation: string,
+		message: CoreMessage,
+	): Promise<void>
+	abstract getCoreMessages(
+		conversation: string,
+		limit?: number,
+	): Promise<CoreMessage[]>
 }

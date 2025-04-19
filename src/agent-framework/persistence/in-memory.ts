@@ -1,8 +1,10 @@
+import { type CoreMessage } from 'ai'
 import { type Message, type ToolCallMessage } from '../types'
 import { Persistence } from './index'
 
 export class InMemoryPersistence extends Persistence {
 	private messages: Message[] = []
+	private conversations: Map<string, CoreMessage[]> = new Map()
 
 	async getMessages(conversation?: string): Promise<Message[]> {
 		return this.messages.filter(
@@ -35,5 +37,22 @@ export class InMemoryPersistence extends Persistence {
 				message.type === 'tool-call' &&
 				message.body.toolCall.toolCallId === toolCallId,
 		)
+	}
+
+	async addCoreMessage(
+		conversation: string,
+		message: CoreMessage,
+	): Promise<void> {
+		const messages = this.conversations.get(conversation) || []
+		messages.push(message)
+		this.conversations.set(conversation, messages)
+	}
+
+	async getCoreMessages(
+		conversation: string,
+		limit?: number,
+	): Promise<CoreMessage[]> {
+		const messages = this.conversations.get(conversation) || []
+		return limit ? messages.slice(-limit) : messages
 	}
 }

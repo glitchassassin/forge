@@ -3,23 +3,24 @@ import 'dotenv/config'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { Agent } from './agent-framework/agent'
-import { InMemoryPersistence } from './agent-framework/persistence/in-memory'
+import { SqlitePersistence } from './agent-framework/persistence/sqlite'
 import { MessageQueue } from './agent-framework/queue'
 import { Runner } from './agent-framework/runner'
 import { withConversation } from './agent-framework/tools'
 import { DiscordClient } from './discord/client'
 
 const discordClient = new DiscordClient()
-const persistence = new InMemoryPersistence()
+const persistence = new SqlitePersistence()
 const queue = new MessageQueue({ persistence })
 
 const runner = new Runner({
 	tools: {
 		discord: withConversation((conversation) =>
 			tool({
-				description: 'Send a message to a Discord channel',
+				description: `Send a message to a Discord channel.
+					You can use Discord-compatible markdown.`,
 				parameters: z.object({
-					message: z.string(),
+					message: z.string().max(2000),
 				}),
 				execute: async ({ message }) => {
 					await discordClient.sendMessage(conversation, message)
@@ -54,9 +55,11 @@ const runner = new Runner({
 export const openrouter = createOpenRouter({
 	apiKey: process.env.OPENROUTER_API_KEY,
 })
+
 const agent = new Agent({
 	model: openrouter('openai/gpt-4.1-mini'),
 	tools: runner.tools,
+	persistence,
 })
 
 agent.register(queue)

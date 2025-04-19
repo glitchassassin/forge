@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { logger } from '../core/logger'
 import { type Persistence } from './persistence'
 import { type CreateMessage, type Message } from './types'
 
@@ -12,6 +11,7 @@ export class MessageQueue {
 		agent: [],
 		'approval-response': [],
 		'tool-call': [],
+		error: [],
 	}
 
 	private nextAction: Record<string, Promise<void>> = {}
@@ -28,20 +28,17 @@ export class MessageQueue {
 	}
 
 	private queueMessage(message: Message) {
-		logger.debug('Queueing message', { m: JSON.stringify({ message }) })
 		this.nextAction[message.conversation] = (
 			this.nextAction[message.conversation] ?? Promise.resolve()
 		)
 			.then(() => this.processMessage(message))
 			.catch((error) => {
-				logger.error('Error handling event:', error)
 				// Continue processing next event even if current one failed
 				return Promise.resolve()
 			})
 	}
 
 	async send(message: CreateMessage) {
-		logger.debug('Sending message', { m: JSON.stringify({ message }) })
 		const m = {
 			...message,
 			id: randomUUID(),
@@ -65,5 +62,6 @@ export class MessageQueue {
 		for (const listener of this.listeners[message.type]) {
 			await listener(message)
 		}
+		await this.persistence.markAsHandled(message.id)
 	}
 }

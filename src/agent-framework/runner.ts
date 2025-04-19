@@ -1,5 +1,4 @@
 import { type Tool, type ToolSet } from 'ai'
-import { logger } from '../core/logger'
 import { type MessageQueue } from './queue'
 import { resolveToolset, type ToolSetWithConversation } from './tools'
 import { type ApprovalResponseMessage, type ToolCallMessage } from './types'
@@ -45,7 +44,6 @@ export class Runner {
 	 * The approver will send an approval response message.
 	 */
 	async handleToolCall(toolCall: ToolCallMessage<any, any>) {
-		logger.debug('Handling tool call', { toolCall })
 		if (this.approvedTools.has(toolCall.body.toolCall.toolName)) {
 			await this.queue?.send({
 				type: 'approval-response',
@@ -132,7 +130,7 @@ export class Runner {
 				conversation: approvalResponse.conversation,
 			})
 		} catch (error) {
-			logger.error('Error executing tool', { error })
+			console.error('[handleApprovalResponse]', error)
 			await this.queue?.send({
 				type: 'agent',
 				body: [

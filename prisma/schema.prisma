@@ -13,43 +13,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model MonitoredChannel {
-  channelId String   @id @map("channel_id")
-  model     String
-  createdAt DateTime @default(now()) @map("created_at")
+model Message {
+  id          String   @id
+  type        String
+  conversation String
+  body        String
+  handled     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  @@map("monitored_channels")
+  @@map("messages")
 }
 
-model ScheduledEvent {
-  id              String   @id @default(uuid())
-  schedulePattern String?  @map("schedule_pattern")
-  prompt          String
-  channelId       String   @map("channel_id")
-  lastTriggeredAt DateTime? @map("last_triggered_at")
-  nextTriggerAt   DateTime @map("next_trigger_at")
-  createdAt       DateTime @default(now()) @map("created_at")
+model Conversation {
+  id          String   @id @default(uuid())
+  channelId   String   @map("channel_id")
+  message     String
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  @@map("scheduled_events")
-}
-
-model ConversationContext {
-  id        String   @id @default(uuid())
-  channelId String   @map("channel_id")
-  message   String
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("conversation_context")
-}
-
-model CollapsibleMessage {
-  id              String   @id @default(uuid())
-  messageId       String   @unique @map("message_id")
-  channelId       String   @map("channel_id")
-  content         String
-  collapsedContent String  @map("collapsed_content")
-  isCollapsed     Boolean  @default(true) @map("is_collapsed")
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  @@map("collapsible_messages")
+  @@map("conversations")
 }

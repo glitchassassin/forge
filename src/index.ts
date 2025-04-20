@@ -1,30 +1,71 @@
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import 'dotenv/config'
-import { config } from './config'
-import { DiscordClient } from './core/discord/client'
-import { EventQueue } from './core/event-queue'
-import { logger } from './core/logger'
-import { createEventHandler } from './handlers/event-handler'
-import { checkAndPublishScheduledEvents } from './tools/schedule'
+import { tool } from 'ai'
+import { z } from 'zod'
+import { Agent } from './agent-framework/agent'
+import { MessageQueue } from './agent-framework/queue'
+import { Runner } from './agent-framework/runner'
+import { withConversation } from './agent-framework/tools'
+import { DiscordClient } from './discord/client'
+import { QueueRepository, AgentRepository } from './sqlite'
 
-if (!process.env.DISCORD_TOKEN) {
-	logger.error('DISCORD_TOKEN is not set in .env file')
-	process.exit(1)
-}
+const discordClient = new DiscordClient()
+const queueRepository = new QueueRepository()
+const agentRepository = new AgentRepository()
+const queue = new MessageQueue({ repository: queueRepository })
 
-const discordClient = new DiscordClient(process.env.DISCORD_TOKEN)
-const handleEvent = createEventHandler(discordClient)
-const eventQueue = new EventQueue(handleEvent)
-
-// Wire up the Discord client to the event queue
-discordClient.onMessage((event) => eventQueue.add(event))
-
-// Check for scheduled events every minute
-setInterval(() => checkAndPublishScheduledEvents(eventQueue), 60 * 1000)
-
-discordClient.start().catch((error) => {
-	logger.error('Failed to start Discord client', { error })
-	process.exit(1)
+const runner = new Runner({
+	tools: {
+		discord: withConversation((conversation) =>
+			tool({
+				description: `Send a message to a Discord channel.
+					You can use Discord-compatible markdown.`,
+				parameters: z.object({
+					message: z.string().max(2000),
+				}),
+				execute: async ({ message }) => {
+					await discordClient.sendMessage(conversation, message)
+				},
+			}),
+		),
+		test: tool({
+			description: 'Test tool',
+			parameters: z.object({
+				message: z.string(),
+			}),
+			execute: async ({ message }) => {
+				if (message.includes('Hello world')) {
+					return 'The password is: Watermelon'
+				} else {
+					throw new Error('Unrecoverable error')
+				}
+			},
+		}),
+	},
+	approvedTools: ['discord'],
+	requestApproval: async (toolCall) => {
+		await discordClient.requestApproval(
+			toolCall.conversation,
+			`Calling tool \`${toolCall.body.toolCall.toolName}\`:\n\`\`\`json\n${JSON.stringify(toolCall.body.toolCall.args, null, 2)}\`\`\``,
+			toolCall.body.toolCall.toolCallId,
+		)
+		return 'pending'
+	},
 })
 
-logger.info('Bot is running')
-discordClient.logStatus(`Bot "${config.name}" is running`)
+export const openrouter = createOpenRouter({
+	apiKey: process.env.OPENROUTER_API_KEY,
+})
+
+const agent = new Agent({
+	model: openrouter('openai/gpt-4.1-mini'),
+	tools: runner.tools,
+	repository: agentRepository,
+})
+
+agent.register(queue)
+runner.register(queue)
+discordClient.register(queue)
+
+await discordClient.start()
+await queue.start()

@@ -1,7 +1,6 @@
 import {
 	generateText,
 	type ToolSet,
-	type LanguageModelV1,
 	type CoreMessage,
 	APICallError,
 	AISDKError,
@@ -13,24 +12,25 @@ import { InMemoryRepository } from './repository/in-memory'
 import { type CreateToolCallMessage, type AgentMessage } from './types'
 
 export class Agent {
-	private model: LanguageModelV1
 	public tools?: ToolSet
+	public generateTextArgs: Omit<
+		Parameters<typeof generateText>[0],
+		'tools' | 'messages' | 'toolChoice' | 'maxSteps'
+	>
 	private queue?: MessageQueue
 	private messages: Map<string, CoreMessage[]> = new Map()
 	private repository: Repository<CoreMessage>
 
 	constructor({
-		model,
 		tools,
 		repository = new InMemoryRepository<CoreMessage>(),
-	}: {
-		model: LanguageModelV1
-		tools?: ToolSet
+		...generateTextArgs
+	}: Parameters<typeof generateText>[0] & {
 		repository: Repository<CoreMessage>
 	}) {
-		this.model = model
 		this.tools = tools
 		this.repository = repository
+		this.generateTextArgs = generateTextArgs
 	}
 
 	async initialize(conversation: string) {
@@ -86,19 +86,11 @@ export class Agent {
 		try {
 			const conversationMessages = this.messages.get(message.conversation) || []
 			const response = await generateText({
-				model: this.model,
+				...this.generateTextArgs,
 				messages: conversationMessages,
 				tools: this.tools,
 				toolChoice: 'required',
 				maxSteps: 1,
-				system: `
-You are Forge, an advanced AI agent.
-
-Your personality is precise, concise, and to the point. Don't worry about formalities.
-Critique my ideas freely and without sycophancy. I value honesty over politeness.
-Don't use emojis unless you are asked to.
-
-The current time is ${new Date().toLocaleString()}.`,
 			})
 
 			// Persist response messages

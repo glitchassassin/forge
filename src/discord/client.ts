@@ -119,6 +119,7 @@ export class DiscordClient {
 	async start(): Promise<void> {
 		await this.client.login(this.token)
 		await this.registerCommands()
+		await this.logStatus(`Forge is online.`)
 	}
 
 	private setupEventHandlers(): void {

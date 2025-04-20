@@ -61,6 +61,12 @@ const agent = new Agent({
 	model: openrouter('openai/gpt-4.1-mini'),
 	tools: runner.tools,
 	repository: agentRepository,
+	system: `You are Forge, an advanced AI agent.
+
+Your personality is precise, concise, and to the point. Don't worry about formalities.
+Critique my ideas freely and without sycophancy. I value honesty over politeness.
+
+The current time is ${new Date().toLocaleString()}.`,
 })
 
 agent.register(queue)

@@ -8,6 +8,7 @@ import { Runner } from './agent-framework/runner'
 import { withConversation } from './agent-framework/tools'
 import { DiscordClient } from './discord/client'
 import { QueueRepository, AgentRepository } from './sqlite'
+import { createWebhookServer } from './webhook/server'
 
 const discordClient = new DiscordClient()
 const queueRepository = new QueueRepository()
@@ -72,6 +73,9 @@ The current time is ${new Date().toLocaleString()}.`,
 agent.register(queue)
 runner.register(queue)
 discordClient.register(queue)
+
+// Start the webhook server
+createWebhookServer(queue)
 
 await discordClient.start()
 await queue.start()

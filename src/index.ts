@@ -18,21 +18,39 @@ const queue = new MessageQueue({ repository: queueRepository })
 
 // Create MCP clients for each server
 const mcpClients = await Promise.all(
-	config.mcp.map(async (server) => ({
-		client: await experimental_createMCPClient({
-			transport: {
-				type: 'sse',
-				url: server.url,
-				headers: server.authorization
-					? {
-							Authorization: `Bearer ${server.authorization.bearer}`,
-						}
-					: undefined,
-			},
-		}),
-		approvedTools: server.approvedTools,
-	})),
+	config.mcp.map(async (server) => {
+		try {
+			const client = await experimental_createMCPClient({
+				transport: {
+					type: 'sse',
+					url: server.url,
+					headers: server.authorization
+						? {
+								Authorization: `Bearer ${server.authorization.bearer}`,
+							}
+						: undefined,
+				},
+			})
+			return {
+				client,
+				approvedTools: server.approvedTools,
+			}
+		} catch (error) {
+			console.error(`Failed to connect to MCP server at ${server.url}:`, error)
+			return null
+		}
+	}),
+).then((results) =>
+	results.filter(
+		(result): result is NonNullable<typeof result> => result !== null,
+	),
 )
+
+if (mcpClients.length === 0) {
+	console.error(
+		'No MCP clients could be initialized. The application will start with limited functionality.',
+	)
+}
 
 // Combine all tools and approved tools
 const allTools = await Promise.all(

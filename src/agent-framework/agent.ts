@@ -18,7 +18,6 @@ export class Agent {
 		'tools' | 'messages' | 'toolChoice' | 'maxSteps'
 	>
 	private queue?: MessageQueue
-	private messages: Map<string, CoreMessage[]> = new Map()
 	private repository: Repository<CoreMessage>
 
 	constructor({
@@ -33,31 +32,12 @@ export class Agent {
 		this.generateTextArgs = generateTextArgs
 	}
 
-	async initialize(conversation: string) {
-		if (this.messages.has(conversation)) {
-			return
-		}
-
-		// Load the last 100 messages from persistence
-		const messages = await this.repository.read({
-			secondaryKey: conversation,
-			limit: 100,
-		})
-		this.messages.set(
-			conversation,
-			messages.map((m) => m.item),
-		)
-	}
-
 	register(queue: MessageQueue) {
 		this.queue = queue
 		queue.on('agent', (message) => this.run(message))
 	}
 
 	async storeMessage(conversation: string, message: CoreMessage) {
-		const messages = this.messages.get(conversation) || []
-		messages.push(message)
-		this.messages.set(conversation, messages)
 		await this.repository.create({
 			primaryKey: ulid(),
 			secondaryKey: conversation,
@@ -66,9 +46,6 @@ export class Agent {
 	}
 
 	async run(message: AgentMessage) {
-		// Initialize conversation if needed
-		await this.initialize(message.conversation)
-
 		// Persist new messages
 		for (const msg of message.body) {
 			await this.storeMessage(message.conversation, msg)
@@ -84,10 +61,15 @@ export class Agent {
 		}
 
 		try {
-			const conversationMessages = this.messages.get(message.conversation) || []
+			// Get the last 100 messages from the repository
+			const conversationMessages = await this.repository.read({
+				secondaryKey: message.conversation,
+				limit: 100,
+			})
+
 			const response = await generateText({
 				...this.generateTextArgs,
-				messages: conversationMessages,
+				messages: conversationMessages.map((m) => m.item),
 				tools: this.tools,
 				toolChoice: 'required',
 				maxSteps: 1,

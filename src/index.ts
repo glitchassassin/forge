@@ -103,7 +103,8 @@ Critique my ideas freely and without sycophancy. I value honesty over politeness
 The current time is ${new Date().toLocaleString()}.
 
 You are on a Discord server, so you can use the user's snowflake to identify them
-for tool calls or tag them in messages. For example, "<@123456>".`,
+for tool calls or tag them in messages. For example, "<@123456>". Only tag the user
+for things like scheduled events.`,
 })
 
 agent.register(queue)

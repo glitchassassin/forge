@@ -23,6 +23,11 @@ const mcpClients = await Promise.all(
 			transport: {
 				type: 'sse',
 				url: server.url,
+				headers: server.authorization
+					? {
+							Authorization: `Bearer ${server.authorization.bearer}`,
+						}
+					: undefined,
 			},
 		}),
 		approvedTools: server.approvedTools,

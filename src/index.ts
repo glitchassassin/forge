@@ -1,11 +1,12 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import 'dotenv/config'
-import { tool } from 'ai'
+import { experimental_createMCPClient, tool } from 'ai'
 import { z } from 'zod'
 import { Agent } from './agent-framework/agent'
 import { MessageQueue } from './agent-framework/queue'
 import { Runner } from './agent-framework/runner'
 import { withConversation } from './agent-framework/tools'
+import { config } from './config'
 import { DiscordClient } from './discord/client'
 import { QueueRepository, AgentRepository } from './sqlite'
 import { createWebhookServer } from './webhook/server'
@@ -14,6 +15,27 @@ const discordClient = new DiscordClient()
 const queueRepository = new QueueRepository()
 const agentRepository = new AgentRepository()
 const queue = new MessageQueue({ repository: queueRepository })
+
+// Create MCP clients for each server
+const mcpClients = await Promise.all(
+	config.mcp.map(async (server) => ({
+		client: await experimental_createMCPClient({
+			transport: {
+				type: 'sse',
+				url: server.url,
+			},
+		}),
+		approvedTools: server.approvedTools,
+	})),
+)
+
+// Combine all tools and approved tools
+const allTools = await Promise.all(
+	mcpClients.map(({ client }) => client.tools()),
+)
+const allApprovedTools = mcpClients.flatMap(
+	({ approvedTools }) => approvedTools,
+)
 
 const runner = new Runner({
 	tools: {
@@ -29,21 +51,9 @@ const runner = new Runner({
 				},
 			}),
 		),
-		test: tool({
-			description: 'Test tool',
-			parameters: z.object({
-				message: z.string(),
-			}),
-			execute: async ({ message }) => {
-				if (message.includes('Hello world')) {
-					return 'The password is: Watermelon'
-				} else {
-					throw new Error('Unrecoverable error')
-				}
-			},
-		}),
+		...Object.assign({}, ...allTools),
 	},
-	approvedTools: ['discord'],
+	approvedTools: ['discord', ...allApprovedTools],
 	requestApproval: async (toolCall) => {
 		await discordClient.requestApproval(
 			toolCall.conversation,

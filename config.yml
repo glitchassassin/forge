@@ -1,1 +1,11 @@
 name: fly
+mcp:
+  []
+  # - url: https://forge-ai.fly.dev/mcp/sse
+  #   approvedTools:
+  #     - tool1
+  #     - tool2
+  # - url: https://another-mcp-server.com/mcp/sse
+  #   approvedTools:
+  #     - tool3
+  #     - tool4

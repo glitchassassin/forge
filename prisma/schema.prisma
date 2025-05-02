@@ -71,3 +71,15 @@ model ToolCall {
 
   @@map("tool_calls")
 }
+
+model ScheduledMessage {
+  id              String    @id @default(uuid())
+  conversationId  String    @map("conversation_id")
+  message         String
+  nextTrigger     DateTime  @map("next_trigger")
+  cron            String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("scheduled_messages")
+}

@@ -1,23 +1,20 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import 'dotenv/config'
-import { PrismaClient } from '@prisma/client'
 import {
 	generateText,
-	tool,
 	type CoreMessage,
 	type ToolSet,
-	type ToolExecutionOptions,
 	type CoreToolMessage,
 	type ToolContent,
-	type Tool,
 	APICallError,
 } from 'ai'
-import { z } from 'zod'
+import { prisma } from './db'
 import { DiscordClient } from './discord/client'
+import { toolStubs } from './tools'
+import { discord } from './tools/discord'
+import { runScheduledMessages, scheduler } from './tools/scheduler'
 import { handleError } from './utils/error-handler'
 import { createWebhookServer } from './webhook/server'
-
-const prisma = new PrismaClient()
 
 // Helper function to ensure a conversation exists
 async function ensureConversation(conversationId: string) {
@@ -62,20 +59,6 @@ export const openrouter = createOpenRouter({
 	apiKey: process.env.OPENROUTER_API_KEY,
 })
 
-/**
- * Returns a stub of a tool that can be used to create a ToolCall without executing it
- */
-function toolStub(tool: Tool) {
-	const { execute, ...rest } = tool
-	return rest
-}
-
-function toolStubs(tools: ToolSet) {
-	return Object.fromEntries(
-		Object.entries(tools).map(([key, tool]) => [key, toolStub(tool)]),
-	)
-}
-
 async function processConversation(
 	conversation: Exclude<
 		Awaited<ReturnType<typeof prisma.conversation.findUnique>>,
@@ -84,19 +67,11 @@ async function processConversation(
 ) {
 	// set up tools
 	const toolset: ToolSet = {
-		discord: tool({
-			description: `Send a message to a Discord channel.
-				You can use Discord-compatible markdown.`,
-			parameters: z.object({
-				message: z.string().max(2000),
-			}),
-			execute: async (
-				{ message }: { message: string },
-				options: ToolExecutionOptions,
-			) => {
-				await discordClient.sendMessage(conversation.id, message)
-			},
+		...discord({
+			discordClient,
+			conversationId: conversation.id,
 		}),
+		...scheduler({ conversationId: conversation.id }),
 	}
 
 	// Handle tool calls
@@ -166,11 +141,14 @@ async function processConversation(
 					data: {
 						conversationId: conversation.id,
 						role: 'tool',
-						content: JSON.stringify({
-							toolCallId: toolCall.id,
-							toolName: toolCall.toolName,
-							error: error instanceof Error ? error.message : 'Unknown error',
-						}),
+						content: JSON.stringify([
+							{
+								type: 'tool-result',
+								toolCallId: toolCall.id,
+								toolName: toolCall.toolName,
+								result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+							},
+						] satisfies ToolContent),
 					},
 				})
 
@@ -319,7 +297,8 @@ for things like scheduled events.`,
 				data: {
 					conversationId: conversation.id,
 					role: 'user',
-					content: 'You failed to make a tool call.',
+					content:
+						'You failed to make a tool call. All communication with the user should be via the Discord tool.',
 				},
 			})
 		}
@@ -341,6 +320,7 @@ for things like scheduled events.`,
 }
 
 async function main() {
+	await runScheduledMessages()
 	const conversations = await prisma.conversation.findMany()
 	await Promise.all(
 		conversations.map(async (conversation) => {

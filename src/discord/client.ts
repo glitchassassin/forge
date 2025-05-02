@@ -9,12 +9,6 @@ import {
 	REST,
 	Routes,
 } from 'discord.js'
-import { type MessageQueue } from '../agent-framework/queue'
-import {
-	type CreateApprovalResponseMessage,
-	type CreateAgentMessage,
-	type CreateMessage,
-} from '../agent-framework/types'
 import { config } from '../config'
 import { logger } from '../core/logger'
 import { triggerUpdate } from '../utils/process'
@@ -93,7 +87,7 @@ export class DiscordClient {
 	 */
 	public emitter = new TypedEventEmitter<{
 		toolCallConfirmation: [toolCallId: string, approved: boolean]
-		message: [message: CreateMessage]
+		message: [conversation: string, message: string]
 	}>()
 	private token: string
 	private isActive: boolean = true
@@ -216,24 +210,11 @@ export class DiscordClient {
 			// Ignore bot messages, non-monitored channels, and if inactive
 			if (message.author.bot || !this.isActive) return
 
-			try {
-				// Create an event with the message history
-				const event: CreateAgentMessage = {
-					type: 'agent',
-					conversation: message.channelId,
-					body: [
-						{
-							role: 'user',
-							content: `${message.author.toString()}: ${message.content}`,
-						},
-					],
-				}
-
-				// Call the message handler if it exists
-				this.emitter.emit('message', event)
-			} catch (error) {
-				logger.error('Error processing message', { error })
-			}
+			this.emitter.emit(
+				'message',
+				message.channelId,
+				`${message.author.toString()}: ${message.content}`,
+			)
 		})
 	}
 
@@ -410,40 +391,5 @@ export class DiscordClient {
 			// Fallback to console if status channel fails
 			logger.info('Status message:', { content })
 		}
-	}
-
-	register(queue: MessageQueue) {
-		this.emitter.on('message', async (message) => {
-			await queue.send(message)
-		})
-		this.emitter.on('toolCallConfirmation', async (toolCallId, approved) => {
-			logger.debug('Approval response', { toolCallId, approved })
-			// fetch the original tool call from the ID in the event
-			const toolCall = await queue.repository.readById({
-				primaryKey: toolCallId,
-			})
-			if (!toolCall || toolCall.item.type !== 'tool-call') {
-				logger.error(`Tool call ${toolCallId} not found`)
-				return
-			}
-			// create a new approval response message
-			const message: CreateApprovalResponseMessage<string, unknown> = {
-				type: 'approval-response',
-				body: {
-					toolCall: toolCall.item.body.toolCall,
-					messages: toolCall.item.body.messages,
-					approved,
-				},
-				conversation: toolCall.item.conversation,
-			}
-			await queue.send(message)
-		})
-
-		queue.on('error', async (error) => {
-			await this.sendMessage(
-				error.conversation,
-				`Error:\n\`\`\`\n${error.body}\n\`\`\``,
-			)
-		})
 	}
 }

@@ -31,3 +31,43 @@ model Agent {
 
   @@map("agents")
 }
+
+model Conversation {
+  id                          String    @id
+  lastProcessedMessageTimestamp DateTime? @map("last_processed_message_timestamp")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @updatedAt @map("updated_at")
+  messages                    Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id            String       @id @default(uuid())
+  conversation  Conversation @relation(fields: [conversationId], references: [id])
+  conversationId String      @map("conversation_id")
+  role          String
+  content       String
+  shouldTrigger Boolean      @default(true) @map("should_trigger")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  toolCalls     ToolCall[]
+
+  @@map("messages")
+}
+
+model ToolCall {
+  id              String       @id @default(uuid())
+  message         Message      @relation(fields: [messageId], references: [id])
+  messageId       String       @map("message_id")
+  toolName        String       @map("tool_name")
+  toolInput       String       @map("tool_input")
+  status          String       @default("pending")
+  requestedAt     DateTime     @default(now()) @map("requested_at")
+  approvedAt      DateTime?    @map("approved_at")
+  startedAt       DateTime?    @map("started_at")
+  finishedAt      DateTime?    @map("finished_at")
+  result          String?
+  error           String?
+
+  @@map("tool_calls")
+}

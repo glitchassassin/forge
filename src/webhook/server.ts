@@ -1,8 +1,9 @@
 import express, { type Request, type Response } from 'express'
 import { z } from 'zod'
-import { type MessageQueue } from '../agent-framework/queue'
 
-export const createWebhookServer = (queue: MessageQueue) => {
+export const createWebhookServer = (
+	onMessage: (conversation: string, message: string) => Promise<void>,
+) => {
 	if (!process.env.WEBHOOK_SECRET) {
 		console.log('WEBHOOK_SECRET not defined, skipping webhook server setup')
 		return
@@ -26,16 +27,7 @@ export const createWebhookServer = (queue: MessageQueue) => {
 					throw new Error('Conversation ID is required')
 				}
 
-				await queue.send({
-					type: 'agent',
-					conversation: conversationId,
-					body: [
-						{
-							role: 'user',
-							content,
-						},
-					],
-				})
+				await onMessage(conversationId, content)
 
 				res.status(200).json({ success: true })
 			} catch (error) {

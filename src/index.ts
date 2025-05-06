@@ -8,8 +8,10 @@ import {
 	type ToolSet,
 } from 'ai'
 import 'dotenv/config'
+import { logger } from './core/logger'
 import { prisma } from './db'
 import { ensureConversation } from './db/ensureConversation'
+import { setupAdminChannels } from './discord/actions/setup-admin-channels'
 import { discordClient } from './discord/client'
 import { toolStubs } from './tools'
 import { discord } from './tools/discord'
@@ -20,6 +22,11 @@ import { createWebhookServer } from './webhook/server'
 // Event Sources
 
 await discordClient.start()
+await setupAdminChannels().catch((error) => {
+	logger.error('Failed to set up admin channels', { error })
+	// Don't throw - we want the bot to continue running even if admin setup fails
+})
+
 createWebhookServer(async (conversationId, content) => {
 	await ensureConversation(conversationId)
 	await prisma.message.create({

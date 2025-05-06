@@ -83,3 +83,26 @@ model ScheduledMessage {
 
   @@map("scheduled_messages")
 }
+
+model MCPServer {
+  id        String   @id @default(uuid())
+  url       String
+  authToken String?  @map("auth_token")
+  tools     Tool[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("mcp_servers")
+}
+
+model Tool {
+  id              String     @id @default(uuid())
+  mcpServer       MCPServer  @relation(fields: [mcpServerId], references: [id])
+  mcpServerId     String     @map("mcp_server_id")
+  name            String
+  requiresApproval Boolean   @default(false) @map("requires_approval")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  @@map("tools")
+}

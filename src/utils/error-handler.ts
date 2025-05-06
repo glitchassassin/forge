@@ -1,4 +1,5 @@
 import { logger } from '../core/logger'
+import { logStatus } from '../discord/actions/log-status'
 import { type DiscordClient } from '../discord/client'
 
 /**
@@ -30,7 +31,7 @@ export async function handleError(
 		try {
 			// Create a more concise message for Discord
 			const discordMessage = `❌ Error${context ? ` in ${context}` : ''}: ${errorMessage}`
-			await discordClient.logStatus(discordMessage)
+			await logStatus(discordMessage)
 		} catch (discordError) {
 			// If Discord logging fails, log that too
 			logger.error('Failed to log error to Discord', { error: discordError })

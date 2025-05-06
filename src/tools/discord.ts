@@ -1,14 +1,8 @@
 import { tool } from 'ai'
 import { z } from 'zod'
-import { type DiscordClient } from '../discord/client'
+import { sendMessage } from '../discord/actions/send-message'
 
-export function discord({
-	conversationId,
-	discordClient,
-}: {
-	conversationId: string
-	discordClient: DiscordClient
-}) {
+export function discord({ conversationId }: { conversationId: string }) {
 	return {
 		discord: tool({
 			description: `Send a message to a Discord channel.
@@ -17,7 +11,7 @@ export function discord({
 				message: z.string().max(2000),
 			}),
 			execute: async ({ message }: { message: string }) => {
-				await discordClient.sendMessage(conversationId, message)
+				await sendMessage(conversationId, message)
 			},
 		}),
 	}

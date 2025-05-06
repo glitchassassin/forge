@@ -1,47 +1,25 @@
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
-import 'dotenv/config'
 import {
+	APICallError,
 	generateText,
 	type CoreMessage,
-	type ToolSet,
 	type CoreToolMessage,
 	type ToolContent,
-	APICallError,
+	type ToolSet,
 } from 'ai'
+import 'dotenv/config'
 import { prisma } from './db'
-import { DiscordClient } from './discord/client'
+import { ensureConversation } from './db/ensureConversation'
+import { discordClient } from './discord/client'
 import { toolStubs } from './tools'
 import { discord } from './tools/discord'
 import { runScheduledMessages, scheduler } from './tools/scheduler'
 import { handleError } from './utils/error-handler'
 import { createWebhookServer } from './webhook/server'
 
-// Helper function to ensure a conversation exists
-async function ensureConversation(conversationId: string) {
-	const conversation = await prisma.conversation.findUnique({
-		where: { id: conversationId },
-	})
-	if (!conversation) {
-		await prisma.conversation.create({
-			data: { id: conversationId },
-		})
-	}
-}
-
 // Event Sources
-const discordClient = new DiscordClient()
-discordClient.emitter.on('message', async (conversationId, content) => {
-	await ensureConversation(conversationId)
-	await prisma.message.create({
-		data: {
-			conversationId,
-			role: 'user',
-			content,
-		},
-	})
-})
-await discordClient.start()
 
+await discordClient.start()
 createWebhookServer(async (conversationId, content) => {
 	await ensureConversation(conversationId)
 	await prisma.message.create({
@@ -68,7 +46,6 @@ async function processConversation(
 	// set up tools
 	const toolset: ToolSet = {
 		...discord({
-			discordClient,
 			conversationId: conversation.id,
 		}),
 		...scheduler({ conversationId: conversation.id }),

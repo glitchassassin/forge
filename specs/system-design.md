@@ -54,9 +54,28 @@ It updates the conversation's last-processed ID when it finishes processing.
   processed.
 - **Message**: stores a CoreMessage (as a JSON string) and is linked to a
   Conversation. The message role ("tool", "user", "assistant", "system") is
-  copied to a text field on the Message record for querying purposes. The ID is
-  a ULID, so it is lexicographically sortable
+  copied to a text field on the Message record for querying purposes.
 - **ToolCall**: stores status of a tool call. Includes the tool call ID, and
   points to the original message ID which requested the tool call. Tracks
   timestamps of when the tool call was requested, approved, started, and
   finished.
+- **MCPServer**: stores the URL and optional authorization token for an MCP
+  server.
+- **Tool**: links to the MCP server and includes the tool name and a boolean
+  indicating whether manual approval is required to run the tool.
+
+## Discord Admin
+
+A channel is created automatically in the `forge` section named `#mcp-servers`.
+This channel may not be posted to, but includes embeds which describe each MCP
+server and have actions to edit or delete the MCP server as well as an action to
+add a new one. Adding or editing a server pops up a modal with the pertinent
+fields. When a server is added or edited, the list in the channel is updated.
+
+A channel is created automatically in the `forge` section named `#mcp-tools`.
+This channel may not be posted to, but includes embeds which describe each tool
+that has been approved. Each has an action to toggle between manual or automatic
+approval. When a tool is configured or its status changes, the list in the
+channel is updated.
+
+The Discord client

@@ -8,29 +8,8 @@ import {
 import { prisma } from '../../db'
 import { discordClient } from '../client'
 
-const PREFIX = 'RA'
-const APPROVE = 'a'
-const REJECT = 'r'
-
-function id(props: {
-	tc: string // tool call id
-	r: typeof APPROVE | typeof REJECT // approve or reject
-}) {
-	return `${PREFIX}|${JSON.stringify(props)}`
-}
-
-function parse(id: string):
-	| {
-			tc: string
-			r: typeof APPROVE | typeof REJECT
-	  }
-	| undefined {
-	const [prefix, data] = id.split('|')
-	if (prefix !== PREFIX || !data) {
-		return undefined
-	}
-	return JSON.parse(data)
-}
+const APPROVE = 'tool-approve'
+const REJECT = 'tool-reject'
 
 export const requestApproval = async (
 	channelId: string,
@@ -44,11 +23,11 @@ export const requestApproval = async (
 
 	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
-			.setCustomId(id({ tc: toolCallId, r: APPROVE }))
+			.setCustomId(`${APPROVE}|${toolCallId}`)
 			.setLabel('Approve')
 			.setStyle(ButtonStyle.Success),
 		new ButtonBuilder()
-			.setCustomId(id({ tc: toolCallId, r: REJECT }))
+			.setCustomId(`${REJECT}|${toolCallId}`)
 			.setLabel('Reject')
 			.setStyle(ButtonStyle.Danger),
 	)
@@ -63,8 +42,8 @@ export const requestApproval = async (
 discordClient.client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isButton()) return
 
-	const parsed = parse(interaction.customId)
-	if (!parsed) return
+	const [action, toolCallId] = interaction.customId.split('|')
+	if (!action || !toolCallId) return
 
 	// Remove the buttons after response
 	await interaction.update({
@@ -73,7 +52,7 @@ discordClient.client.on('interactionCreate', async (interaction) => {
 	})
 
 	const toolCall = await prisma.toolCall.findUnique({
-		where: { id: parsed.tc },
+		where: { id: toolCallId },
 		include: { message: true },
 	})
 
@@ -85,10 +64,10 @@ discordClient.client.on('interactionCreate', async (interaction) => {
 		return
 	}
 
-	if (parsed.r === APPROVE) {
+	if (action === APPROVE) {
 		// Update tool call status to approved
 		await prisma.toolCall.update({
-			where: { id: parsed.tc },
+			where: { id: toolCallId },
 			data: { approvedAt: new Date() },
 		})
 	} else {
@@ -100,7 +79,7 @@ discordClient.client.on('interactionCreate', async (interaction) => {
 				content: JSON.stringify([
 					{
 						type: 'tool-result',
-						toolCallId: parsed.tc,
+						toolCallId,
 						toolName: toolCall.toolName,
 						result: 'Error: Tool call was rejected by the user',
 					},
@@ -110,7 +89,7 @@ discordClient.client.on('interactionCreate', async (interaction) => {
 
 		// Update tool call status to finished with error
 		await prisma.toolCall.update({
-			where: { id: parsed.tc },
+			where: { id: toolCallId },
 			data: {
 				finishedAt: new Date(),
 				status: 'finished',

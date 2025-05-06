@@ -11,7 +11,8 @@ import 'dotenv/config'
 import { logger } from './core/logger'
 import { prisma } from './db'
 import { ensureConversation } from './db/ensureConversation'
-import { setupAdminChannels } from './discord/actions/setup-admin-channels'
+import { setupMCPServersChannel } from './discord/actions/setup-mcp-servers-channel'
+import { setupMCPToolsChannel } from './discord/actions/setup-mcp-tools-channel'
 import { discordClient } from './discord/client'
 import { toolStubs } from './tools'
 import { discord } from './tools/discord'
@@ -22,10 +23,14 @@ import { createWebhookServer } from './webhook/server'
 // Event Sources
 
 await discordClient.start()
-await setupAdminChannels().catch((error) => {
-	logger.error('Failed to set up admin channels', { error })
-	// Don't throw - we want the bot to continue running even if admin setup fails
-})
+await Promise.all([
+	setupMCPServersChannel().catch((error) => {
+		logger.error('Failed to set up MCP servers channel', { error })
+	}),
+	setupMCPToolsChannel().catch((error) => {
+		logger.error('Failed to set up MCP tools channel', { error })
+	}),
+])
 
 createWebhookServer(async (conversationId, content) => {
 	await ensureConversation(conversationId)

@@ -66,7 +66,7 @@ export class DiscordClient {
 				data: {
 					conversationId: message.channelId,
 					role: 'user',
-					content: message.content,
+					content: `<discord_message><username>${message.author.username}</username><user_id>${message.author.id}</user_id><content>${message.content}</content></discord_message>`,
 				},
 			})
 		})

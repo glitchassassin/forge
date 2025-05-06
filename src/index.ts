@@ -16,6 +16,7 @@ import { setupMCPToolsChannel } from './discord/actions/setup-mcp-tools-channel'
 import { discordClient } from './discord/client'
 import { toolStubs } from './tools'
 import { discord } from './tools/discord'
+import { mcp } from './tools/mcp'
 import { runScheduledMessages, scheduler } from './tools/scheduler'
 import { handleError } from './utils/error-handler'
 import { createWebhookServer } from './webhook/server'
@@ -61,6 +62,7 @@ async function processConversation(
 			conversationId: conversation.id,
 		}),
 		...scheduler({ conversationId: conversation.id }),
+		...(await mcp()),
 	}
 
 	// Handle tool calls
@@ -85,6 +87,12 @@ async function processConversation(
 					)
 				}
 
+				logger.info('Executing tool call', {
+					toolName: toolCall.toolName,
+					toolCallId: toolCall.id,
+					input: toolCall.toolInput,
+				})
+
 				// Update tool call status to started
 				await prisma.toolCall.update({
 					where: { id: toolCall.id },
@@ -97,6 +105,12 @@ async function processConversation(
 						toolCallId: toolCall.id,
 						messages: [],
 					})) ?? null
+
+				logger.info('Tool execution completed', {
+					toolName: toolCall.toolName,
+					toolCallId: toolCall.id,
+					result,
+				})
 
 				// Create tool result message
 				await prisma.message.create({

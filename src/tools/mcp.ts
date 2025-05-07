@@ -1,6 +1,7 @@
 import { experimental_createMCPClient, type ToolSet } from 'ai'
 import { logger } from '../core/logger'
 import { prisma } from '../db'
+import { refreshToolsChannel } from '../discord/actions/setup-mcp-tools-channel'
 
 export async function mcp(): Promise<ToolSet> {
 	try {
@@ -46,6 +47,9 @@ export async function mcp(): Promise<ToolSet> {
 							serverId: server.id,
 							tools: newTools,
 						})
+
+						// Refresh the tools channel to show new tools
+						await refreshToolsChannel()
 					}
 
 					return tools

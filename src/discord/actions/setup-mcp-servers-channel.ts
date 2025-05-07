@@ -14,6 +14,7 @@ import { logger } from '../../core/logger'
 import { prisma } from '../../db'
 import { discordClient } from '../client'
 import { findOrCreateForgeChannel } from '../utils/channel-utils'
+import { refreshToolsChannel } from './setup-mcp-tools-channel'
 
 // Button IDs
 const BUTTON_IDS = {
@@ -182,6 +183,9 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 
 				// Delete the server message
 				await interaction.message.delete()
+
+				// Refresh the tools channel since tools may have been deleted
+				await refreshToolsChannel()
 			} catch (error) {
 				logger.error('Error deleting server', { error, serverId })
 				await interaction.reply({

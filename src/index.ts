@@ -2,6 +2,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import {
 	APICallError,
 	generateText,
+	InvalidToolArgumentsError,
 	type CoreMessage,
 	type CoreToolMessage,
 	type ToolContent,
@@ -315,6 +316,18 @@ for things like scheduled events.`,
 
 		if (APICallError.isInstance(error)) {
 			console.error(error.cause)
+		}
+
+		if (InvalidToolArgumentsError.isInstance(error)) {
+			// Create a message to inform the LLM about the invalid tool arguments
+			await prisma.message.create({
+				data: {
+					conversationId: conversation.id,
+					role: 'user',
+					content: `The previous tool call had invalid arguments: ${error.message}. Please try again with valid arguments.`,
+					shouldTrigger: true,
+				},
+			})
 		}
 	}
 

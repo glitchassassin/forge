@@ -9,6 +9,7 @@ import {
 	type ToolSet,
 } from 'ai'
 import 'dotenv/config'
+import { systemPrompt } from './config/system-prompt'
 import { logger } from './core/logger'
 import { prisma } from './db'
 import { ensureConversation } from './db/ensureConversation'
@@ -253,16 +254,7 @@ async function processConversation(
 			model: openrouter('openai/gpt-4.1-mini'),
 			tools: toolStubs(toolset),
 			messages: context,
-			system: `You are Forge, an advanced AI agent.
-
-Your personality is precise, concise, and to the point. Don't worry about formalities.
-Critique my ideas freely and without sycophancy. I value honesty over politeness.
-
-The current time is ${new Date().toLocaleString()}.
-
-You are on a Discord server, so you can use the user's snowflake to identify them
-for tool calls or tag them in messages. For example, "<@123456>". Only tag the user
-for things like scheduled events.`,
+			system: systemPrompt(),
 		})
 
 		// Store assistant messages and tool calls

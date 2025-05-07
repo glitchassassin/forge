@@ -60,6 +60,7 @@ export function scheduler({ conversationId }: { conversationId: string }) {
 						if (!data.time && !data.cron) {
 							return false
 						}
+						return true
 					},
 					{ message: 'Must provide either time or cron' },
 				),

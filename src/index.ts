@@ -56,15 +56,6 @@ async function processConversation(
 		null
 	>,
 ) {
-	// set up tools
-	const toolset: ToolSet = {
-		...discord({
-			conversationId: conversation.id,
-		}),
-		...scheduler({ conversationId: conversation.id }),
-		...(await mcp()),
-	}
-
 	// Handle tool calls
 	const pendingToolCalls = await prisma.toolCall.findMany({
 		where: {
@@ -75,6 +66,32 @@ async function processConversation(
 			finishedAt: null,
 		},
 	})
+
+	// Check for new messages
+	const hasNewMessages =
+		!conversation.lastProcessedMessageTimestamp ||
+		(await prisma.message.findFirst({
+			where: {
+				conversationId: conversation.id,
+				createdAt: {
+					gt: conversation.lastProcessedMessageTimestamp,
+				},
+				shouldTrigger: true,
+			},
+		}))
+
+	if (!hasNewMessages && pendingToolCalls.length === 0) {
+		return // No new messages or tool calls to process
+	}
+
+	// set up tools
+	const toolset: ToolSet = {
+		...discord({
+			conversationId: conversation.id,
+		}),
+		...scheduler({ conversationId: conversation.id }),
+		...(await mcp()),
+	}
 
 	// Execute approved tool calls in parallel
 	await Promise.all(
@@ -168,18 +185,6 @@ async function processConversation(
 		}),
 	)
 
-	// Check for new messages
-	const hasNewMessages =
-		!conversation.lastProcessedMessageTimestamp ||
-		(await prisma.message.findFirst({
-			where: {
-				conversationId: conversation.id,
-				createdAt: {
-					gt: conversation.lastProcessedMessageTimestamp,
-				},
-				shouldTrigger: true,
-			},
-		}))
 	if (!hasNewMessages) {
 		return // No new messages to process
 	}

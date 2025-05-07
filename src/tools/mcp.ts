@@ -2,10 +2,7 @@ import { experimental_createMCPClient, type ToolSet } from 'ai'
 import { logger } from '../core/logger'
 import { prisma } from '../db'
 
-let tools: ToolSet | undefined = undefined
 export async function mcp(): Promise<ToolSet> {
-	if (tools) return tools
-
 	try {
 		// Get all MCPServers configured
 		const servers = await prisma.mcpServer.findMany({
@@ -47,7 +44,6 @@ export async function mcp(): Promise<ToolSet> {
 			return { ...acc, ...tools }
 		}, {})
 
-		tools = allTools
 		return allTools
 	} catch (error) {
 		logger.error('Error setting up MCP tools', { error })

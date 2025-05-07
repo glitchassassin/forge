@@ -25,7 +25,30 @@ export async function mcp(): Promise<ToolSet> {
 						},
 					})
 
-					return client.tools()
+					const tools = await client.tools()
+
+					// Create Tool records for any new tools
+					const existingToolNames = new Set(server.tools.map((t) => t.name))
+					const newTools = Object.keys(tools).filter(
+						(name) => !existingToolNames.has(name),
+					)
+
+					if (newTools.length > 0) {
+						await prisma.tool.createMany({
+							data: newTools.map((name) => ({
+								mcpServerId: server.id,
+								name,
+								requiresApproval: true,
+							})),
+						})
+
+						logger.info('Created new tool records', {
+							serverId: server.id,
+							tools: newTools,
+						})
+					}
+
+					return tools
 				} catch (error) {
 					logger.error('Error creating MCP client', {
 						error,

@@ -97,7 +97,7 @@ model McpServer {
 
 model Tool {
   id              String     @id @default(uuid())
-  mcpServer       McpServer  @relation(fields: [mcpServerId], references: [id])
+  mcpServer       McpServer  @relation(fields: [mcpServerId], references: [id], onDelete: Cascade)
   mcpServerId     String     @map("mcp_server_id")
   name            String
   requiresApproval Boolean   @default(false) @map("requires_approval")

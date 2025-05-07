@@ -13,10 +13,11 @@ import { systemPrompt } from './config/system-prompt'
 import { logger } from './core/logger'
 import { prisma } from './db'
 import { ensureConversation } from './db/ensureConversation'
+import { requestApproval } from './discord/actions/request-approval'
 import { setupMCPServersChannel } from './discord/actions/setup-mcp-servers-channel'
 import { setupMCPToolsChannel } from './discord/actions/setup-mcp-tools-channel'
 import { discordClient } from './discord/client'
-import { toolStubs } from './tools'
+import { processToolCall, toolStubs } from './tools'
 import { discord } from './tools/discord'
 import { mcp } from './tools/mcp'
 import { runScheduledMessages, scheduler } from './tools/scheduler'
@@ -88,103 +89,18 @@ async function processConversation(
 
 	// set up tools
 	const toolset: ToolSet = {
+		...(await mcp()),
+		...scheduler({ conversationId: conversation.id }),
 		...discord({
 			conversationId: conversation.id,
 		}),
-		...scheduler({ conversationId: conversation.id }),
-		...(await mcp()),
 	}
 
 	// Execute approved tool calls in parallel
 	await Promise.all(
-		pendingToolCalls.map(async (toolCall) => {
-			try {
-				const selectedTool = toolset[toolCall.toolName as keyof typeof toolset]
-				if (!selectedTool?.execute) {
-					throw new Error(
-						`Tool ${toolCall.toolName} not found or not executable`,
-					)
-				}
-
-				logger.info('Executing tool call', {
-					toolName: toolCall.toolName,
-					toolCallId: toolCall.id,
-					input: toolCall.toolInput,
-				})
-
-				// Update tool call status to started
-				await prisma.toolCall.update({
-					where: { id: toolCall.id },
-					data: { startedAt: new Date(), status: 'started' },
-				})
-
-				// Execute the tool
-				const result =
-					(await selectedTool.execute(JSON.parse(toolCall.toolInput), {
-						toolCallId: toolCall.id,
-						messages: [],
-					})) ?? null
-
-				logger.info('Tool execution completed', {
-					toolName: toolCall.toolName,
-					toolCallId: toolCall.id,
-					result,
-				})
-
-				// Create tool result message
-				await prisma.message.create({
-					data: {
-						conversationId: conversation.id,
-						role: 'tool',
-						content: JSON.stringify([
-							{
-								type: 'tool-result',
-								toolCallId: toolCall.id,
-								toolName: toolCall.toolName,
-								result,
-							},
-						] satisfies ToolContent),
-						shouldTrigger: result !== null,
-					},
-				})
-
-				// Update tool call status to finished
-				await prisma.toolCall.update({
-					where: { id: toolCall.id },
-					data: {
-						finishedAt: new Date(),
-						status: 'finished',
-						result: JSON.stringify(result),
-					},
-				})
-			} catch (error) {
-				// Create error message
-				await prisma.message.create({
-					data: {
-						conversationId: conversation.id,
-						role: 'tool',
-						content: JSON.stringify([
-							{
-								type: 'tool-result',
-								toolCallId: toolCall.id,
-								toolName: toolCall.toolName,
-								result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-							},
-						] satisfies ToolContent),
-					},
-				})
-
-				// Update tool call status to finished with error
-				await prisma.toolCall.update({
-					where: { id: toolCall.id },
-					data: {
-						finishedAt: new Date(),
-						status: 'finished',
-						error: error instanceof Error ? error.message : 'Unknown error',
-					},
-				})
-			}
-		}),
+		pendingToolCalls.map((toolCall) =>
+			processToolCall(toolCall, toolset, conversation.id),
+		),
 	)
 
 	if (!hasNewMessages) {
@@ -279,15 +195,43 @@ async function processConversation(
 				)
 				for (const toolCall of toolCalls) {
 					if (toolCall.type === 'tool-call') {
-						await prisma.toolCall.create({
+						// Check if the tool requires approval
+						const tool = await prisma.tool.findFirst({
+							where: {
+								name: toolCall.toolName,
+							},
+						})
+
+						const requiresApproval = tool?.requiresApproval ?? false
+						const status = requiresApproval
+							? 'waiting-for-approval'
+							: 'approved'
+
+						const createdToolCall = await prisma.toolCall.create({
 							data: {
 								id: toolCall.toolCallId,
 								messageId: storedMessage.id,
 								toolName: toolCall.toolName,
 								toolInput: JSON.stringify(toolCall.args),
-								status: 'approved', // Auto-approve for now
+								status,
 							},
 						})
+
+						// If approval is required, trigger the approval request
+						if (requiresApproval) {
+							const jsonStr = JSON.stringify(toolCall.args, null, 2)
+							const truncatedJson =
+								jsonStr.length > 1900
+									? jsonStr.slice(0, 1896) + '\n...'
+									: jsonStr
+
+							await requestApproval(
+								conversation.id,
+								`Tool call requested: ${toolCall.toolName}\nInput: \`\`\`json\n${truncatedJson}\n\`\`\``,
+								createdToolCall.id,
+							)
+						}
+
 						madeToolCall = true
 					}
 				}

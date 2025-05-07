@@ -192,10 +192,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 			break
 
 		default:
-			logger.warn('Unknown button interaction', {
-				customId: interaction.customId,
-			})
-			await interaction.reply({ content: 'Unknown action', ephemeral: true })
+			return
 	}
 }
 
@@ -312,13 +309,6 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction) {
 				break
 
 			default:
-				logger.warn('Unknown modal submission', {
-					customId: interaction.customId,
-				})
-				await interaction.reply({
-					content: 'Unknown action',
-					ephemeral: true,
-				})
 				return
 		}
 	} catch (error) {

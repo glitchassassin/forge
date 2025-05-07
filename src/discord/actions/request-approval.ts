@@ -10,6 +10,7 @@ import { discordClient } from '../client'
 
 const APPROVE = 'tool-approve'
 const REJECT = 'tool-reject'
+const ALWAYS_APPROVE = 'tool-always-approve'
 
 export const requestApproval = async (
 	channelId: string,
@@ -26,6 +27,10 @@ export const requestApproval = async (
 			.setCustomId(`${APPROVE}|${toolCallId}`)
 			.setLabel('Approve')
 			.setStyle(ButtonStyle.Success),
+		new ButtonBuilder()
+			.setCustomId(`${ALWAYS_APPROVE}|${toolCallId}`)
+			.setLabel('Always Approve')
+			.setStyle(ButtonStyle.Primary),
 		new ButtonBuilder()
 			.setCustomId(`${REJECT}|${toolCallId}`)
 			.setLabel('Reject')
@@ -64,11 +69,26 @@ discordClient.client.on('interactionCreate', async (interaction) => {
 		return
 	}
 
-	if (action === APPROVE) {
+	if (action === APPROVE || action === ALWAYS_APPROVE) {
+		// If always approve is selected, update the tool's requiresApproval setting
+		if (action === ALWAYS_APPROVE) {
+			await prisma.tool.updateMany({
+				where: {
+					name: toolCall.toolName,
+				},
+				data: {
+					requiresApproval: false,
+				},
+			})
+		}
+
 		// Update tool call status to approved
 		await prisma.toolCall.update({
 			where: { id: toolCallId },
-			data: { approvedAt: new Date() },
+			data: {
+				approvedAt: new Date(),
+				status: 'approved',
+			},
 		})
 	} else {
 		// Create tool result message for rejection

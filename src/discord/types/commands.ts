@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, Guild } from 'discord.js'
+import { type ChatInputCommandInteraction, type Guild } from 'discord.js'
 
 export interface Command {
 	metadata: {

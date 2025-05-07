@@ -1,4 +1,4 @@
-import { ToolContent } from 'ai'
+import { type ToolContent } from 'ai'
 import {
 	ActionRowBuilder,
 	ButtonBuilder,

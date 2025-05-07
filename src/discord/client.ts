@@ -4,7 +4,7 @@ import { prisma } from '../db'
 import { ensureConversation } from '../db/ensureConversation'
 import { logStatus } from './actions/log-status'
 import { newChannelCommand } from './commands/new-channel'
-import { Command } from './types/commands'
+import { type Command } from './types/commands'
 
 export class DiscordClient {
 	public client: Client

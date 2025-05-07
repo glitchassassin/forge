@@ -1,6 +1,10 @@
-import { ChatInputCommandInteraction, Guild, MessageFlags } from 'discord.js'
+import {
+	type ChatInputCommandInteraction,
+	type Guild,
+	MessageFlags,
+} from 'discord.js'
 import { logger } from '../../core/logger'
-import { Command } from '../types/commands'
+import { type Command } from '../types/commands'
 import {
 	findNextChannelNumber,
 	findOrCreateForgeChannel,

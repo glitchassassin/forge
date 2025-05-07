@@ -1,4 +1,4 @@
-import { experimental_createMCPClient, ToolSet } from 'ai'
+import { experimental_createMCPClient, type ToolSet } from 'ai'
 import { logger } from '../core/logger'
 import { prisma } from '../db'
 
@@ -8,7 +8,7 @@ export async function mcp(): Promise<ToolSet> {
 
 	try {
 		// Get all MCPServers configured
-		const servers = await prisma.mCPServer.findMany({
+		const servers = await prisma.mcpServer.findMany({
 			include: {
 				tools: true,
 			},

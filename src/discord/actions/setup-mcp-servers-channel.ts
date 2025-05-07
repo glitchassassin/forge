@@ -1,11 +1,11 @@
 import {
 	ActionRowBuilder,
 	ButtonBuilder,
-	ButtonInteraction,
+	type ButtonInteraction,
 	ButtonStyle,
 	EmbedBuilder,
 	ModalBuilder,
-	ModalSubmitInteraction,
+	type ModalSubmitInteraction,
 	TextChannel,
 	TextInputBuilder,
 	TextInputStyle,
@@ -121,7 +121,7 @@ async function refreshChannelMessages(channel: TextChannel) {
 		.fetch()
 		.then((messages) => Promise.all(messages.map((msg) => msg.delete())))
 	await sendInitialMessage(channel)
-	const servers = await prisma.mCPServer.findMany()
+	const servers = await prisma.mcpServer.findMany()
 	for (const server of servers) {
 		await channel.send(serverMessage(server))
 	}
@@ -147,7 +147,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 				return
 			}
 			logger.info('Edit server button pressed', { serverId })
-			const server = await prisma.mCPServer.findUnique({
+			const server = await prisma.mcpServer.findUnique({
 				where: { id: serverId },
 			})
 			if (!server) {
@@ -176,7 +176,7 @@ async function handleButtonInteraction(interaction: ButtonInteraction) {
 			logger.info('Delete server button pressed', { serverId })
 
 			try {
-				await prisma.mCPServer.delete({
+				await prisma.mcpServer.delete({
 					where: { id: serverId },
 				})
 
@@ -214,7 +214,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction) {
 				// Validate URL
 				try {
 					new URL(url)
-				} catch (e) {
+				} catch {
 					await interaction.reply({
 						content: 'Please enter a valid URL (e.g., https://example.com)',
 						ephemeral: true,
@@ -224,7 +224,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction) {
 
 				if (action === MODAL_IDS.ADD_SERVER) {
 					// Check for duplicate URL
-					const existingServer = await prisma.mCPServer.findFirst({
+					const existingServer = await prisma.mcpServer.findFirst({
 						where: { url },
 					})
 					if (existingServer) {
@@ -235,7 +235,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction) {
 						return
 					}
 
-					const newServer = await prisma.mCPServer.create({
+					const newServer = await prisma.mcpServer.create({
 						data: {
 							url,
 							authToken,
@@ -253,7 +253,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction) {
 					}
 
 					// Check for duplicate URL (excluding current server)
-					const duplicateServer = await prisma.mCPServer.findFirst({
+					const duplicateServer = await prisma.mcpServer.findFirst({
 						where: {
 							url,
 							id: { not: serverId },
@@ -272,7 +272,7 @@ async function handleModalSubmit(interaction: ModalSubmitInteraction) {
 						authToken,
 					}
 
-					const updatedServer = await prisma.mCPServer.update({
+					const updatedServer = await prisma.mcpServer.update({
 						where: { id: serverId },
 						data: updateData,
 					})

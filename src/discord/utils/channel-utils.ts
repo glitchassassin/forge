@@ -1,4 +1,4 @@
-import { ChannelType, Guild } from 'discord.js'
+import { ChannelType, type Guild } from 'discord.js'
 
 export const findNextChannelNumber = async (guild: Guild): Promise<number> => {
 	const channels = await guild.channels.fetch()

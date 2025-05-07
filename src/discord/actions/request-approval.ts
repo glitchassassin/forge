@@ -48,7 +48,13 @@ discordClient.client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isButton()) return
 
 	const [action, toolCallId] = interaction.customId.split('|')
-	if (!action || !toolCallId) return
+	if (
+		!action ||
+		![APPROVE, ALWAYS_APPROVE, REJECT].includes(action) ||
+		!toolCallId
+	) {
+		return // not for us
+	}
 
 	// Remove the buttons after response
 	await interaction.update({

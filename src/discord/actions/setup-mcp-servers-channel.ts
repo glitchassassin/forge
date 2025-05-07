@@ -132,6 +132,20 @@ async function refreshChannelMessages(channel: TextChannel) {
 async function handleButtonInteraction(interaction: ButtonInteraction) {
 	const [action, serverId] = interaction.customId.split('|')
 
+	if (
+		!action ||
+		!serverId ||
+		!(
+			[
+				BUTTON_IDS.ADD_SERVER,
+				BUTTON_IDS.EDIT_SERVER,
+				BUTTON_IDS.DELETE_SERVER,
+			] as string[]
+		).includes(action)
+	) {
+		return // not for us
+	}
+
 	switch (action) {
 		case BUTTON_IDS.ADD_SERVER:
 			logger.info('Add server button pressed')

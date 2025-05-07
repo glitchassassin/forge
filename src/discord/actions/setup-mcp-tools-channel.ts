@@ -83,6 +83,14 @@ async function refreshChannelMessages(channel: TextChannel) {
 async function handleButtonInteraction(interaction: ButtonInteraction) {
 	const [action, toolId] = interaction.customId.split('|')
 
+	if (
+		!action ||
+		!toolId ||
+		!([BUTTON_IDS.TOGGLE_APPROVAL] as string[]).includes(action)
+	) {
+		return // not for us
+	}
+
 	switch (action) {
 		case BUTTON_IDS.TOGGLE_APPROVAL:
 			if (!toolId) {

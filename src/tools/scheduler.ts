@@ -11,7 +11,8 @@ export function scheduler({ conversationId }: { conversationId: string }) {
 			description: `Schedule a message to be sent to you at a specific time or on a recurring schedule.
                 The message will be wrapped in a <scheduled_message> tag so you know it's a reminder,
                 not from the user directly. Address messages to yourself and describe what you should
-                do when the reminder triggers.`,
+                do when the reminder triggers. When you receive a scheduled message, you should follow
+				its instructions, interrupting the current flow of the conversation if necessary.`,
 			parameters: z
 				.object({
 					message: z
@@ -105,7 +106,9 @@ export function scheduler({ conversationId }: { conversationId: string }) {
 			description: `Update a scheduled message to be sent to you at a specific time or on a 
                 recurring schedule. The message will be wrapped in a <scheduled_message> tag so you 
                 know it's a reminder, not from the user directly. Address messages to yourself and 
-                describe what you should do when the reminder triggers.`,
+                describe what you should do when the reminder triggers. When you receive a scheduled
+				message, you should follow its instructions, interrupting the current flow of the
+				conversation if necessary.`,
 			parameters: z
 				.object({
 					id: z.string(),

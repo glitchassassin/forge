@@ -71,17 +71,28 @@ async function processConversation(
 	})
 
 	// Check for new messages
+
+	// Get context for inference
+	const messages = await prisma.message.findMany({
+		where: {
+			conversationId: conversation.id,
+		},
+		include: {
+			toolCalls: true,
+		},
+		orderBy: { createdAt: 'asc' },
+		take: 100,
+	})
+	const mostRecentMessage = messages
+		.filter((msg) => msg.shouldTrigger)
+		.reduce<
+			(typeof messages)[number] | null
+		>((max, msg) => (max && max.createdAt > msg.createdAt ? max : msg), null)
+
 	const hasNewMessages =
-		!conversation.lastProcessedMessageTimestamp ||
-		(await prisma.message.findFirst({
-			where: {
-				conversationId: conversation.id,
-				createdAt: {
-					gt: conversation.lastProcessedMessageTimestamp,
-				},
-				shouldTrigger: true,
-			},
-		}))
+		mostRecentMessage &&
+		(!conversation.lastProcessedMessageTimestamp ||
+			mostRecentMessage.createdAt > conversation.lastProcessedMessageTimestamp)
 
 	if (!hasNewMessages && pendingToolCalls.length === 0) {
 		return // No new messages or tool calls to process
@@ -103,22 +114,7 @@ async function processConversation(
 		),
 	)
 
-	if (!hasNewMessages) {
-		return // No new messages to process
-	}
-
-	// Get context for inference
-	const messages = await prisma.message.findMany({
-		where: {
-			conversationId: conversation.id,
-		},
-		include: {
-			toolCalls: true,
-		},
-		orderBy: { createdAt: 'asc' },
-		take: 100,
-	})
-	if (messages.length === 0) {
+	if (!hasNewMessages || messages.length === 0) {
 		return // No messages to process
 	}
 
@@ -271,7 +267,7 @@ async function processConversation(
 	await prisma.conversation.update({
 		where: { id: conversation.id },
 		data: {
-			lastProcessedMessageTimestamp: messages[messages.length - 1]!.createdAt,
+			lastProcessedMessageTimestamp: mostRecentMessage.createdAt,
 		},
 	})
 }
